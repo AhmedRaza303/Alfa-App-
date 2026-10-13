@@ -83,7 +83,7 @@ export const INITIAL_USERS: User[] = [
     countryCode: 'GB',
     state: 'England',
     city: 'London',
-    postalCode: 'SW1A 1AA',
+    postalCode: '10001',
     registeredAt: '2026-10-13T02:15:00Z'
   },
   {

@@ -17,9 +17,9 @@ export interface CountryInfo {
   states?: string[];
 }
 
-/** Postal codes in this app are exactly 6 digits. */
-export const POSTAL_CODE_LENGTH = 6;
-export const POSTAL_CODE_PATTERN = /^\d{6}$/;
+/** Postal codes in this app are exactly 5 digits. */
+export const POSTAL_CODE_LENGTH = 5;
+export const POSTAL_CODE_PATTERN = /^\d{5}$/;
 
 /** City names: letters, spaces, hyphen, apostrophe, period (no digits). */
 export const CITY_NAME_PATTERN = /^[\p{L}][\p{L}\s'.-]*$/u;
@@ -31,7 +31,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+1',
     flag: '🇺🇸',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '900012',
+    postalPlaceholder: '90012',
     states: [
       'California', 'Texas', 'Florida', 'New York', 'Illinois', 'Pennsylvania', 'Ohio',
       'Georgia', 'North Carolina', 'Michigan', 'New Jersey', 'Virginia', 'Washington',
@@ -48,7 +48,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+92',
     flag: '🇵🇰',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '440001',
+    postalPlaceholder: '44000',
     states: ['Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'Balochistan', 'Islamabad Capital Territory', 'Gilgit-Baltistan', 'Azad Kashmir']
   },
   {
@@ -57,7 +57,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+44',
     flag: '🇬🇧',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '100001',
+    postalPlaceholder: '10001',
     states: ['England', 'Scotland', 'Wales', 'Northern Ireland']
   },
   {
@@ -66,7 +66,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+34',
     flag: '🇪🇸',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '280001',
+    postalPlaceholder: '28001',
     states: [
       'Andalucía', 'Aragón', 'Asturias', 'Baleares', 'Canarias', 'Cantabria', 'Castilla-La Mancha',
       'Castilla y León', 'Cataluña', 'Extremadura', 'Galicia', 'Madrid', 'Murcia', 'Navarra',
@@ -79,7 +79,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+1',
     flag: '🇨🇦',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '100001',
+    postalPlaceholder: '10001',
     states: [
       'Ontario', 'Quebec', 'British Columbia', 'Alberta', 'Manitoba', 'Saskatchewan',
       'Nova Scotia', 'New Brunswick', 'Newfoundland and Labrador', 'Prince Edward Island'
@@ -91,7 +91,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+52',
     flag: '🇲🇽',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '010000',
+    postalPlaceholder: '01000',
     states: [
       'Ciudad de México', 'Jalisco', 'Nuevo León', 'Puebla', 'Guanajuato', 'Veracruz',
       'Estado de México', 'Baja California', 'Sonora', 'Chihuahua', 'Yucatán', 'Querétaro'
@@ -103,7 +103,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+91',
     flag: '🇮🇳',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '110001',
+    postalPlaceholder: '11000',
     states: [
       'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Delhi', 'Uttar Pradesh', 'Gujarat',
       'West Bengal', 'Telangana', 'Kerala', 'Rajasthan', 'Punjab', 'Haryana'
@@ -115,7 +115,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+57',
     flag: '🇨🇴',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '110111',
+    postalPlaceholder: '11011',
     states: ['Bogotá D.C.', 'Antioquia', 'Valle del Cauca', 'Atlántico', 'Santander', 'Bolívar']
   },
   {
@@ -124,7 +124,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+54',
     flag: '🇦🇷',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '100002',
+    postalPlaceholder: '10000',
     states: ['Buenos Aires', 'Córdoba', 'Santa Fe', 'Mendoza', 'Tucumán']
   },
   {
@@ -133,7 +133,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+55',
     flag: '🇧🇷',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '010010',
+    postalPlaceholder: '01001',
     states: ['São Paulo', 'Rio de Janeiro', 'Minas Gerais', 'Bahia', 'Paraná', 'Rio Grande do Sul']
   },
   {
@@ -142,7 +142,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+61',
     flag: '🇦🇺',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '200000',
+    postalPlaceholder: '20000',
     states: ['New South Wales', 'Victoria', 'Queensland', 'Western Australia', 'South Australia', 'Tasmania']
   },
   {
@@ -151,7 +151,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+49',
     flag: '🇩🇪',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '101150',
+    postalPlaceholder: '10115',
     states: ['Berlin', 'Bavaria', 'Baden-Württemberg', 'North Rhine-Westphalia', 'Hesse', 'Hamburg']
   },
   {
@@ -160,7 +160,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+33',
     flag: '🇫🇷',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '750001',
+    postalPlaceholder: '75001',
     states: ['Île-de-France', 'Auvergne-Rhône-Alpes', 'Nouvelle-Aquitaine', 'Occitanie', 'Provence-Alpes-Côte d\'Azur']
   },
   {
@@ -169,7 +169,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+39',
     flag: '🇮🇹',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '001180',
+    postalPlaceholder: '00118',
     states: ['Lombardy', 'Lazio', 'Campania', 'Veneto', 'Sicily', 'Piedmont', 'Tuscany']
   },
   {
@@ -178,7 +178,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+971',
     flag: '🇦🇪',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '000001',
+    postalPlaceholder: '00001',
     states: ['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah', 'Fujairah', 'Umm Al Quwain']
   },
   {
@@ -187,7 +187,7 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+966',
     flag: '🇸🇦',
     postalPattern: POSTAL_CODE_PATTERN,
-    postalPlaceholder: '115640',
+    postalPlaceholder: '11564',
     states: ['Riyadh', 'Makkah', 'Eastern Province', 'Madinah', 'Asir']
   }
 ];
@@ -206,35 +206,23 @@ export const getCountryByDialCode = (dialCode?: string): CountryInfo => {
   return COUNTRIES.find((c) => c.dialCode === clean) || DEFAULT_COUNTRY;
 };
 
-/**
- * Max national (local) digit count allowed for a country.
- * Uses libphonenumber length rules so input can be capped while typing.
- */
-export const getMaxNationalPhoneLength = (countryCode: string): number => {
-  const code = (countryCode || 'US') as CountryCode;
-  try {
-    const example = getExampleNumber(code, examples);
-    let max = example?.nationalNumber?.length ?? 10;
-    for (let len = 1; len <= 15; len++) {
-      const result = validatePhoneNumberLength('1'.repeat(len), code);
-      if (result === 'TOO_LONG') return Math.max(1, len - 1);
-      max = len;
-    }
-    return max;
-  } catch {
-    return 15;
-  }
-};
-
-/** Typical / example national length (for UI hint). */
+/** Typical / example national length (for UI hint + input cap). */
 export const getExpectedNationalPhoneLength = (countryCode: string): number => {
   try {
     const example = getExampleNumber((countryCode || 'US') as CountryCode, examples);
-    return example?.nationalNumber?.length ?? getMaxNationalPhoneLength(countryCode);
+    return example?.nationalNumber?.length ?? 10;
   } catch {
-    return getMaxNationalPhoneLength(countryCode);
+    return 10;
   }
 };
+
+/**
+ * Max national digits allowed while typing.
+ * Uses the country example length so the counter matches real valid numbers
+ * (e.g. US = 10, not an inflated libphonenumber "possible" upper bound).
+ */
+export const getMaxNationalPhoneLength = (countryCode: string): number =>
+  getExpectedNationalPhoneLength(countryCode);
 
 export const getPhoneDigitCount = (input: string): number =>
   (input || '').replace(/\D/g, '').length;
@@ -256,13 +244,14 @@ export const formatPhoneAsYouType = (input: string, countryCode: string): string
 };
 
 /**
- * Strict international phone validation for the selected country.
+ * Strict phone validation for the selected country.
+ * Pass the national number only (without dial code) — SignUp already shows dial code separately.
  */
 export const validateInternationalPhone = (
-  fullOrNationalNumber: string,
+  nationalOrFullNumber: string,
   countryCode: string
 ): { isValid: boolean; e164?: string; formatted?: string; error?: string } => {
-  const trimmed = (fullOrNationalNumber || '').trim();
+  const trimmed = (nationalOrFullNumber || '').trim();
   if (!trimmed) {
     return { isValid: false, error: 'Phone number is required.' };
   }
@@ -270,13 +259,13 @@ export const validateInternationalPhone = (
   const code = (countryCode || 'US') as CountryCode;
   const expected = getExpectedNationalPhoneLength(code);
   const max = getMaxNationalPhoneLength(code);
-  const nationalDigits = trimmed.replace(/\D/g, '');
+  const digitCount = getPhoneDigitCount(trimmed);
 
-  if (nationalDigits.length === 0) {
+  if (digitCount === 0) {
     return { isValid: false, error: 'Phone number is required.' };
   }
 
-  if (nationalDigits.length > max) {
+  if (digitCount > max) {
     return {
       isValid: false,
       error: `Phone number is too long for the selected country (max ${max} digits).`
@@ -284,20 +273,16 @@ export const validateInternationalPhone = (
   }
 
   try {
+    // Validate as national number for the selected country (do not prepend dial code —
+    // that would inflate digit counts and break length checks).
     const lengthResult = validatePhoneNumberLength(trimmed, code);
     if (lengthResult === 'TOO_SHORT') {
       return {
         isValid: false,
-        error: `Phone number is too short. Enter about ${expected} digits for this country.`
+        error: `Phone number is too short. Enter ${expected} digits for this country.`
       };
     }
-    if (lengthResult === 'TOO_LONG') {
-      return {
-        isValid: false,
-        error: `Phone number is too long for the selected country (max ${max} digits).`
-      };
-    }
-    if (lengthResult === 'INVALID_LENGTH') {
+    if (lengthResult === 'TOO_LONG' || lengthResult === 'INVALID_LENGTH') {
       return {
         isValid: false,
         error: `Enter a valid ${expected}-digit phone number for the selected country.`
@@ -345,7 +330,7 @@ export const validateCityName = (
   return { isValid: true };
 };
 
-/** Digits only, capped at 6. */
+/** Digits only, capped at POSTAL_CODE_LENGTH. */
 export const sanitizePostalCode = (input: string): string =>
   (input || '').replace(/\D/g, '').slice(0, POSTAL_CODE_LENGTH);
 

@@ -213,9 +213,7 @@ export const SignUpView: React.FC = () => {
     const cleanEmail = email.trim().toLowerCase();
 
     const phoneValidation = validateInternationalPhone(
-      phoneNumber.startsWith('+')
-        ? phoneNumber
-        : `${selectedCountry.dialCode} ${phoneNumber}`,
+      phoneNumber,
       selectedCountry.code
     );
     if (!phoneValidation.isValid) {
