@@ -1,13 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useShellLayout } from '../../context/ShellLayoutContext';
 import { User, ApprovalStatus } from '../../types';
+import { getFlyerCategoryLabel } from '../../utils/flyerCategories';
 import {
   Users,
   Clock,
-  CheckCircle2,
-  XCircle,
   Search,
-  Filter,
   Eye,
   Check,
   X,
@@ -19,15 +18,15 @@ import {
   Tag,
   Shield,
   Instagram,
-  AlertTriangle,
-  FileText
+  AlertTriangle
 } from 'lucide-react';
 
 export const MarketerRequestsView: React.FC = () => {
-  const { users, currentUser, approveMarketer, rejectMarketer, t } = useApp();
+  const { users, approveMarketer, rejectMarketer, t, language } = useApp();
+  const { isExpandedShell } = useShellLayout();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | ApprovalStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | ApprovalStatus>('pending');
   const [selectedMarketer, setSelectedMarketer] = useState<User | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     type: 'approve' | 'reject';
@@ -107,183 +106,58 @@ export const MarketerRequestsView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#f4f7fb] overflow-y-auto">
-      <div className="max-w-3xl w-full mx-auto p-3 sm:p-5 space-y-4">
-        {/* Header Banner */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-blue-100 text-blue-700 border border-blue-200">
-                  Admin Control
-                </span>
-                {counts.pending > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
-                    {counts.pending} Action Required
-                  </span>
-                )}
-              </div>
-              <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                {t.requestsTitle}
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                {t.requestsSubtitle}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Summary Counter Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          {/* Pending */}
-          <div
-            onClick={() => setStatusFilter('pending')}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-              statusFilter === 'pending'
-                ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-200'
-                : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs'
-            }`}
-          >
-            <div className="flex items-center justify-between text-amber-600 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider">
-                {t.pendingRequests}
-              </span>
-              <Clock className="w-4 h-4" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900">
-              {counts.pending}
-            </div>
-          </div>
-
-          {/* Approved */}
-          <div
-            onClick={() => setStatusFilter('approved')}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-              statusFilter === 'approved'
-                ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-200'
-                : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs'
-            }`}
-          >
-            <div className="flex items-center justify-between text-emerald-600 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider">
-                {t.approved}
-              </span>
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900">
-              {counts.approved}
-            </div>
-          </div>
-
-          {/* Rejected */}
-          <div
-            onClick={() => setStatusFilter('rejected')}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-              statusFilter === 'rejected'
-                ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-200'
-                : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs'
-            }`}
-          >
-            <div className="flex items-center justify-between text-rose-600 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider">
-                {t.rejected}
-              </span>
-              <XCircle className="w-4 h-4" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900">
-              {counts.rejected}
-            </div>
-          </div>
-
-          {/* Total Marketers */}
-          <div
-            onClick={() => setStatusFilter('all')}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-              statusFilter === 'all'
-                ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200'
-                : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs'
-            }`}
-          >
-            <div className="flex items-center justify-between text-blue-600 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider">
-                {t.totalMarketers}
-              </span>
-              <Users className="w-4 h-4" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900">
-              {counts.total}
-            </div>
-          </div>
-        </div>
-
-        {/* Search & Filter Bar */}
+    <div className="flex flex-col h-full min-h-0 bg-slate-50 overflow-y-auto">
+      <div
+        className={`w-full mx-auto p-3 space-y-3 ${
+          isExpandedShell ? 'max-w-3xl p-4 space-y-4' : 'max-w-md'
+        }`}
+      >
+        {/* Search + status filters (single control — no duplicate counts) */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3 space-y-2.5">
-          <div className="flex flex-col sm:flex-row items-center gap-2.5">
-            {/* Search Input */}
-            <div className="relative flex-1 w-full">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search marketer by name, email, @handle, city, or country..."
-                className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all"
-              />
-              {searchQuery && (
+          <div className="relative w-full">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search name, email, city..."
+              className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-4 gap-1.5">
+            {(
+              [
+                { key: 'pending' as const, label: 'Pending', count: counts.pending, active: 'bg-amber-500 text-white', idle: 'bg-amber-50 text-amber-800' },
+                { key: 'approved' as const, label: 'Approved', count: counts.approved, active: 'bg-emerald-600 text-white', idle: 'bg-emerald-50 text-emerald-800' },
+                { key: 'rejected' as const, label: 'Rejected', count: counts.rejected, active: 'bg-rose-600 text-white', idle: 'bg-rose-50 text-rose-800' },
+                { key: 'all' as const, label: 'All', count: counts.total, active: 'bg-blue-600 text-white', idle: 'bg-slate-100 text-slate-700' }
+              ] as const
+            ).map((f) => {
+              const isActive = statusFilter === f.key;
+              return (
                 <button
+                  key={f.key}
                   type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                  onClick={() => setStatusFilter(f.key)}
+                  className={`py-2 px-1 rounded-xl text-center transition-all cursor-pointer ${
+                    isActive ? f.active : f.idle
+                  }`}
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <div className="text-base font-black leading-none">{f.count}</div>
+                  <div className="text-[10px] font-bold mt-0.5 truncate">{f.label}</div>
                 </button>
-              )}
-            </div>
-
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1 w-full sm:w-auto overflow-x-auto pb-0.5">
-              {(['all', 'pending', 'approved', 'rejected'] as const).map((st) => {
-                const label =
-                  st === 'all'
-                    ? t.allFilter
-                    : st === 'pending'
-                    ? t.pendingRequests
-                    : st === 'approved'
-                    ? t.approved
-                    : t.rejected;
-                const count =
-                  st === 'all'
-                    ? counts.total
-                    : st === 'pending'
-                    ? counts.pending
-                    : st === 'approved'
-                    ? counts.approved
-                    : counts.rejected;
-                const isActive = statusFilter === st;
-
-                return (
-                  <button
-                    key={st}
-                    type="button"
-                    onClick={() => setStatusFilter(st)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                      isActive
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-slate-100 hover:bg-slate-200/70 text-slate-600'
-                    }`}
-                  >
-                    <span>{label}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                        isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+              );
+            })}
           </div>
         </div>
 
@@ -308,7 +182,11 @@ export const MarketerRequestsView: React.FC = () => {
               return (
                 <div
                   key={marketer.id}
-                  className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3.5 sm:p-4 hover:border-slate-300 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                  className={`bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3.5 hover:border-slate-300 transition-all gap-3 ${
+                    isExpandedShell
+                      ? 'flex flex-row items-center justify-between'
+                      : 'flex flex-col items-stretch'
+                  }`}
                 >
                   {/* Marketer Brief */}
                   <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -373,15 +251,23 @@ export const MarketerRequestsView: React.FC = () => {
                   </div>
 
                   {/* Actions Row */}
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                  <div
+                    className={`flex items-center gap-2 shrink-0 ${
+                      isExpandedShell
+                        ? 'w-auto justify-end'
+                        : 'w-full justify-stretch pt-2 border-t border-slate-100'
+                    }`}
+                  >
                     <button
                       type="button"
                       onClick={() => setSelectedMarketer(marketer)}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className={`px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                        !isExpandedShell ? 'flex-1' : ''
+                      }`}
                       title={t.viewProfile}
                     >
                       <Eye className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{t.viewProfile}</span>
+                      <span>{isExpandedShell ? t.viewProfile : 'View'}</span>
                     </button>
 
                     {isPending && (
@@ -389,7 +275,9 @@ export const MarketerRequestsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenApproveConfirm(marketer)}
-                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                          className={`px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-2xs transition-all cursor-pointer ${
+                            !isExpandedShell ? 'flex-1' : ''
+                          }`}
                         >
                           <Check className="w-3.5 h-3.5" />
                           <span>{t.approve}</span>
@@ -398,7 +286,9 @@ export const MarketerRequestsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenRejectConfirm(marketer)}
-                          className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                          className={`px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                            !isExpandedShell ? 'flex-1' : ''
+                          }`}
                         >
                           <X className="w-3.5 h-3.5" />
                           <span>{t.reject}</span>
@@ -434,44 +324,41 @@ export const MarketerRequestsView: React.FC = () => {
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* VIEW PROFILE MODAL (All 13 required fields)                              */}
-      {/* ========================================================================= */}
+      {/* View Profile Modal — Info + Address sections */}
       {selectedMarketer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in-50">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in-50">
           <div className="fixed inset-0" onClick={() => setSelectedMarketer(null)} />
 
-          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 z-10 overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-blue-600" />
-                <h2 className="text-sm font-bold text-slate-900">
-                  Marketer Registration Dossier
-                </h2>
-              </div>
+          <div
+            className={`relative w-full bg-white shadow-2xl border border-slate-200 z-10 overflow-hidden flex flex-col ${
+              isExpandedShell
+                ? 'max-w-md rounded-3xl max-h-[90vh]'
+                : 'max-w-md rounded-t-3xl sm:rounded-3xl max-h-[92dvh]'
+            }`}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
+              <h2 className="text-sm font-bold text-slate-900">{t.viewProfile}</h2>
               <button
                 type="button"
                 onClick={() => setSelectedMarketer(null)}
-                className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Body: 13 Fields */}
-            <div className="p-5 space-y-4 overflow-y-auto text-xs">
-              {/* Profile Card Header */}
-              <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <div className="p-4 space-y-3 overflow-y-auto">
+              {/* Identity */}
+              <div className="flex items-center gap-3">
                 <img
                   src={selectedMarketer.avatar}
                   alt={selectedMarketer.name}
-                  className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-xs shrink-0"
+                  className="w-14 h-14 rounded-full object-cover border border-slate-200 shrink-0"
                   referrerPolicy="no-referrer"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-base font-bold text-slate-900">
+                    <h3 className="text-base font-bold text-slate-900 truncate">
                       {selectedMarketer.name}
                     </h3>
                     <span
@@ -479,204 +366,148 @@ export const MarketerRequestsView: React.FC = () => {
                         selectedMarketer.approvalStatus === 'approved'
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           : selectedMarketer.approvalStatus === 'pending'
-                          ? 'bg-amber-50 text-amber-800 border-amber-200'
-                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
                       }`}
                     >
                       {selectedMarketer.approvalStatus}
                     </span>
                   </div>
                   {selectedMarketer.instagram && (
-                    <p className="text-blue-600 font-semibold mt-0.5">
+                    <p className="text-xs font-semibold text-blue-600 mt-0.5 flex items-center gap-1">
+                      <Instagram className="w-3 h-3" />
                       {selectedMarketer.instagram}
                     </p>
                   )}
-                  <p className="text-[11px] text-slate-400">
-                    ID: {selectedMarketer.id}
-                  </p>
                 </div>
               </div>
 
-              {/* 13 Structured Fields in Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* 1. Name */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Full Name
-                  </span>
-                  <span className="font-semibold text-slate-800 text-xs">
-                    {selectedMarketer.name}
+              {/* Info — icon + value rows */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-2.5">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Shield className="w-3.5 h-3.5 text-blue-600" />
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                    Info
                   </span>
                 </div>
-
-                {/* 2. Instagram */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Instagram Handle
-                  </span>
-                  <span className="font-semibold text-blue-700 text-xs">
-                    {selectedMarketer.instagram || 'Not provided'}
-                  </span>
-                </div>
-
-                {/* 3. Email */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Email Address
-                  </span>
-                  <span className="font-semibold text-slate-800 text-xs truncate block">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+                  <p className="text-xs font-semibold text-slate-800 truncate">
                     {selectedMarketer.email}
-                  </span>
+                  </p>
                 </div>
-
-                {/* 4. Phone */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Phone (with Code)
-                  </span>
-                  <span className="font-semibold text-slate-800 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+                  <p className="text-xs font-semibold text-slate-800">
                     {selectedMarketer.phoneCountryCode
                       ? `${selectedMarketer.phoneCountryCode} ${selectedMarketer.phone}`
-                      : selectedMarketer.phone}
-                  </span>
+                      : selectedMarketer.phone || '—'}
+                  </p>
                 </div>
-
-                {/* 5. Preferred Flyer Language */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Preferred Flyer Language
-                  </span>
-                  <span className="font-semibold text-purple-700 text-xs uppercase">
+                <div className="flex items-center gap-2.5">
+                  <Globe className="w-4 h-4 text-slate-400 shrink-0" />
+                  <p className="text-xs font-semibold text-slate-800">
                     {selectedMarketer.preferredFlyerLanguage === 'es'
-                      ? 'Spanish (Español)'
+                      ? 'Spanish'
                       : 'English'}
-                  </span>
+                  </p>
                 </div>
-
-                {/* 6. Preferred Flyer Categories */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Flyer Categories
-                  </span>
-                  <div className="flex gap-1 flex-wrap mt-0.5">
+                <div className="flex items-start gap-2.5">
+                  <Tag className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                  <div className="flex flex-wrap gap-1">
                     {selectedMarketer.preferredFlyerCategories &&
                     selectedMarketer.preferredFlyerCategories.length > 0 ? (
                       selectedMarketer.preferredFlyerCategories.map((c) => (
                         <span
                           key={c}
-                          className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md font-bold text-[10px]"
+                          className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-md text-[10px] font-bold"
                         >
-                          {c === 'work_injury' ? 'Work Injury' : 'Car Accident'}
+                          {getFlyerCategoryLabel(c, language)}
                         </span>
                       ))
                     ) : (
-                      <span className="text-slate-400 italic">None selected</span>
+                      <span className="text-xs text-slate-400">No category</span>
                     )}
                   </div>
                 </div>
-
-                {/* 7. Country */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Country
-                  </span>
-                  <span className="font-semibold text-slate-800 text-xs">
-                    {selectedMarketer.country || selectedMarketer.countryCode || 'Not specified'}
-                  </span>
-                </div>
-
-                {/* 8. State */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    State / Region
-                  </span>
-                  <span className="font-semibold text-slate-800 text-xs">
-                    {selectedMarketer.state || 'Not specified'}
-                  </span>
-                </div>
-
-                {/* 9. City */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    City
-                  </span>
-                  <span className="font-semibold text-slate-800 text-xs">
-                    {selectedMarketer.city || 'Not specified'}
-                  </span>
-                </div>
-
-                {/* 10. Postal Code */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Postal Code
-                  </span>
-                  <span className="font-semibold text-slate-800 text-xs">
-                    {selectedMarketer.postalCode || 'Not specified'}
-                  </span>
-                </div>
-
-                {/* 11. Registration Date */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Registration Date
-                  </span>
-                  <span className="font-semibold text-slate-700 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                  <p className="text-xs font-semibold text-slate-800">
                     {selectedMarketer.registeredAt
-                      ? new Date(selectedMarketer.registeredAt).toLocaleString()
-                      : 'Legacy / Prior registration'}
+                      ? new Date(selectedMarketer.registeredAt).toLocaleDateString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })
+                      : '—'}
+                  </p>
+                </div>
+              </section>
+
+              {/* Address — compact icon rows */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-2.5">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                    Address
                   </span>
                 </div>
-
-                {/* 12. Approval Status */}
-                <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Approval Status
-                  </span>
-                  <span className="font-bold text-slate-800 text-xs uppercase">
-                    {selectedMarketer.approvalStatus}
-                  </span>
+                <div className="flex items-center gap-2.5">
+                  <Globe className="w-4 h-4 text-slate-400 shrink-0" />
+                  <p className="text-xs font-semibold text-slate-800">
+                    {selectedMarketer.country ||
+                      selectedMarketer.countryCode ||
+                      'Not specified'}
+                  </p>
                 </div>
-              </div>
+                <div className="flex items-center gap-2.5">
+                  <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+                  <p className="text-xs font-semibold text-slate-800">
+                    {[selectedMarketer.city, selectedMarketer.state, selectedMarketer.postalCode]
+                      .filter(Boolean)
+                      .join(', ') || 'Not specified'}
+                  </p>
+                </div>
+              </section>
 
-              {/* Review History Notes (if rejected or reviewed) */}
               {selectedMarketer.rejectionReason && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
-                  <span className="font-bold block mb-0.5">Rejection Reason:</span>
-                  <p>{selectedMarketer.rejectionReason}</p>
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block mb-0.5">Rejection reason</span>
+                    <p>{selectedMarketer.rejectionReason}</p>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Modal Footer Actions */}
-            <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50 shrink-0 gap-2">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/80 shrink-0 gap-2">
               <button
                 type="button"
                 onClick={() => setSelectedMarketer(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 Close
               </button>
-
               <div className="flex items-center gap-2">
                 {selectedMarketer.approvalStatus !== 'approved' && (
                   <button
                     type="button"
                     onClick={() => handleOpenApproveConfirm(selectedMarketer)}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Check className="w-4 h-4" />
-                    <span>Approve Marketer</span>
+                    <Check className="w-3.5 h-3.5" />
+                    {t.approve}
                   </button>
                 )}
-
                 {selectedMarketer.approvalStatus !== 'rejected' && (
                   <button
                     type="button"
                     onClick={() => handleOpenRejectConfirm(selectedMarketer)}
                     className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                   >
-                    <X className="w-4 h-4" />
-                    <span>Reject Request</span>
+                    <X className="w-3.5 h-3.5" />
+                    {t.reject}
                   </button>
                 )}
               </div>

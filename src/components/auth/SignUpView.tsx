@@ -1,58 +1,76 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Shield,
   ArrowLeft,
   ArrowRight,
   Camera,
-  Trash2,
   Mail,
   User,
   Phone,
   Lock,
   AlertCircle,
-  Upload,
   CheckCircle2,
   Instagram,
   Eye,
   EyeOff,
-  Globe,
-  MapPin,
-  Check,
-  Building,
-  CheckSquare,
-  Square
+  Check
 } from 'lucide-react';
 import { LanguageSelector } from '../common/LanguageSelector';
 import {
   COUNTRIES,
   DEFAULT_COUNTRY,
   getCountryByCode,
-  getCountryByDialCode,
   formatPhoneAsYouType,
   validateInternationalPhone,
+  sanitizeCityName,
+  validateCityName,
+  sanitizePostalCode,
+  validatePostalCode,
+  getMaxNationalPhoneLength,
+  getExpectedNationalPhoneLength,
+  getPhoneDigitCount,
+  POSTAL_CODE_LENGTH,
   CountryInfo
 } from '../../utils/countries';
 import { FlyerLanguage, FlyerCategory } from '../../types';
+import { FLYER_CATEGORIES, getFlyerCategoryLabel } from '../../utils/flyerCategories';
+
+type FieldErrors = Partial<
+  Record<
+    | 'name'
+    | 'email'
+    | 'password'
+    | 'phone'
+    | 'state'
+    | 'city'
+    | 'postalCode'
+    | 'categories',
+    string
+  >
+>;
+
+const inputBase =
+  'w-full py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-shadow';
+const inputOk =
+  'border-slate-300 focus:ring-blue-500 focus:border-blue-500';
+const inputErr =
+  'border-rose-400 focus:ring-rose-400 focus:border-rose-400 bg-rose-50/40';
 
 export const SignUpView: React.FC = () => {
-  const { signup, setAuthView, users, t } = useApp();
+  const { signup, setAuthView, users, t, language } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Wizard Step: 1 | 2
   const [step, setStep] = useState<1 | 2>(1);
 
-  // STEP 1 Fields (Personal Profile)
+  // STEP 1
   const [avatar, setAvatar] = useState<string>('');
   const [name, setName] = useState('');
   const [instagram, setInstagram] = useState('');
   const [preferredFlyerLanguage, setPreferredFlyerLanguage] = useState<FlyerLanguage>('en');
-  const [preferredFlyerCategories, setPreferredFlyerCategories] = useState<FlyerCategory[]>([
-    'work_injury',
-    'car_accident'
-  ]);
+  const [preferredFlyerCategories, setPreferredFlyerCategories] = useState<FlyerCategory[]>([]);
 
-  // STEP 2 Fields (Account & Location)
+  // STEP 2
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -62,11 +80,39 @@ export const SignUpView: React.FC = () => {
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
 
-  // General error state & submission success screen
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isSubmittedSuccess, setIsSubmittedSuccess] = useState(false);
 
-  // Avatar Upload Handlers
+  const phoneMax = useMemo(
+    () => getMaxNationalPhoneLength(selectedCountry.code),
+    [selectedCountry.code]
+  );
+  const phoneExpected = useMemo(
+    () => getExpectedNationalPhoneLength(selectedCountry.code),
+    [selectedCountry.code]
+  );
+  const phoneDigits = getPhoneDigitCount(phoneNumber);
+
+  const passwordStrength = useMemo(() => {
+    if (!password) return { score: 0, label: '' };
+    let score = 0;
+    if (password.length >= 8) score += 1;
+    if (/[a-zA-Z]/.test(password) && /\d/.test(password)) score += 1;
+    if (password.length >= 12 || /[^a-zA-Z0-9]/.test(password)) score += 1;
+    const labels = ['', 'Weak', 'Good', 'Strong'];
+    return { score, label: labels[score] };
+  }, [password]);
+
+  const clearFieldError = (key: keyof FieldErrors) => {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -92,119 +138,117 @@ export const SignUpView: React.FC = () => {
 
   const handleRemoveAvatar = () => {
     setAvatar('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Category toggle handler
-  const handleToggleCategory = (cat: FlyerCategory) => {
-    setPreferredFlyerCategories((prev) => {
-      if (prev.includes(cat)) {
-        if (prev.length === 1) return prev; // Keep at least one selected
-        return prev.filter((c) => c !== cat);
-      } else {
-        return [...prev, cat];
-      }
-    });
-  };
-
-  // Country change handler (Synchronizes Phone dialing code & resets incompatible state)
   const handleCountryChange = (countryCode: string) => {
     const nextCountry = getCountryByCode(countryCode);
     setSelectedCountry(nextCountry);
-    setState(''); // Reset state/region on country change
+    setState('');
+    setPhoneNumber((prev) => formatPhoneAsYouType(prev, nextCountry.code));
     setError(null);
+    clearFieldError('phone');
   };
 
-  // Phone input formatting
   const handlePhoneChange = (val: string) => {
-    const formatted = formatPhoneAsYouType(val, selectedCountry.code);
-    setPhoneNumber(formatted);
+    setPhoneNumber(formatPhoneAsYouType(val, selectedCountry.code));
     setError(null);
+    clearFieldError('phone');
   };
 
-  // Step 1 Validation -> Proceed to Step 2
+  const handleCityChange = (val: string) => {
+    setCity(sanitizeCityName(val));
+    setError(null);
+    clearFieldError('city');
+  };
+
+  const handlePostalChange = (val: string) => {
+    setPostalCode(sanitizePostalCode(val));
+    setError(null);
+    clearFieldError('postalCode');
+  };
+
   const handleContinueToStep2 = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const nextErrors: FieldErrors = {};
 
-    const cleanName = name.trim();
-    if (!cleanName || cleanName.length < 2) {
-      setError('Please enter your full name (minimum 2 characters).');
-      return;
-    }
-
-    if (preferredFlyerCategories.length === 0) {
-      setError('Please select at least one preferred flyer category.');
-      return;
-    }
-
-    setStep(2);
-  };
-
-  // Step 2 Submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    // 1. Email validation & duplicate check
     const cleanEmail = email.trim().toLowerCase();
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!cleanEmail || !emailPattern.test(cleanEmail)) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-    const alreadyExists = users.some((u) => u.email.toLowerCase() === cleanEmail);
-    if (alreadyExists) {
-      setError('An account with this email is already registered. Please sign in instead.');
-      return;
+      nextErrors.email = 'Please enter a valid email address.';
+    } else if (users.some((u) => u.email.toLowerCase() === cleanEmail)) {
+      nextErrors.email = 'An account with this email is already registered. Please sign in instead.';
     }
 
-    // 2. Password validation (minimum 8 chars with letter & number)
     if (!password || password.length < 8) {
-      setError('Password must contain at least 8 characters.');
-      return;
+      nextErrors.password = 'Password must contain at least 8 characters.';
+    } else if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+      nextErrors.password = 'Password must contain at least one letter and one number.';
     }
-    const hasLetter = /[a-zA-Z]/.test(password);
-    const hasDigit = /\d/.test(password);
-    if (!hasLetter || !hasDigit) {
-      setError('Password must contain at least one letter and one number.');
+
+    const cleanName = name.trim();
+    if (!cleanName || cleanName.length < 2) {
+      nextErrors.name = 'Please enter your full name (minimum 2 characters).';
+    }
+    if (preferredFlyerCategories.length === 0) {
+      nextErrors.categories = 'Please select at least one preferred flyer category.';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      setError(Object.values(nextErrors)[0] || null);
       return;
     }
 
-    // 3. International Phone validation
+    setFieldErrors({});
+    setStep(2);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const nextErrors: FieldErrors = {};
+
+    const cleanEmail = email.trim().toLowerCase();
+
     const phoneValidation = validateInternationalPhone(
-      phoneNumber.startsWith('+') ? phoneNumber : `${selectedCountry.dialCode} ${phoneNumber}`,
+      phoneNumber.startsWith('+')
+        ? phoneNumber
+        : `${selectedCountry.dialCode} ${phoneNumber}`,
       selectedCountry.code
     );
     if (!phoneValidation.isValid) {
-      setError(phoneValidation.error || 'Please enter a valid international phone number.');
-      return;
+      nextErrors.phone =
+        phoneValidation.error || 'Please enter a valid international phone number.';
     }
 
-    // 4. Location fields validation
     if (!state.trim()) {
-      setError('Please select or enter your State / Province.');
-      return;
+      nextErrors.state = 'Please select or enter your State / Province.';
     }
-    if (!city.trim()) {
-      setError('Please enter your City.');
-      return;
+
+    const cityValidation = validateCityName(city);
+    if (!cityValidation.isValid) {
+      nextErrors.city = cityValidation.error;
     }
-    if (!postalCode.trim()) {
-      setError('Please enter your Postal Code.');
+
+    const postalValidation = validatePostalCode(postalCode);
+    if (!postalValidation.isValid) {
+      nextErrors.postalCode = postalValidation.error;
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      setError(Object.values(nextErrors)[0] || null);
       return;
     }
 
-    // Normalize Instagram handle
     const cleanInstagram = instagram.trim()
       ? instagram.trim().startsWith('@')
         ? instagram.trim()
         : `@${instagram.trim()}`
       : undefined;
 
-    // Create new applicant in AppContext with approvalStatus = 'pending'
     signup({
       name: name.trim(),
       email: cleanEmail,
@@ -224,19 +268,17 @@ export const SignUpView: React.FC = () => {
       countryCode: selectedCountry.code,
       state: state.trim(),
       city: city.trim(),
-      postalCode: postalCode.trim(),
+      postalCode: sanitizePostalCode(postalCode),
       registeredAt: new Date().toISOString(),
       hasCompletedTour: false
     });
 
-    // Show Confirmation Screen
     setIsSubmittedSuccess(true);
   };
 
-  // SUCCESS CONFIRMATION VIEW
   if (isSubmittedSuccess) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4 sm:p-6">
+      <div className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white flex flex-col justify-center items-center p-4 sm:p-6">
         <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-slate-200/90 p-6 sm:p-8 text-center space-y-5 animate-in fade-in-50 zoom-in-95">
           <div className="w-16 h-16 bg-amber-50 border-2 border-amber-200 rounded-3xl flex items-center justify-center text-amber-600 mx-auto shadow-sm">
             <CheckCircle2 className="w-8 h-8 stroke-[2.2]" />
@@ -269,23 +311,36 @@ export const SignUpView: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => setAuthView('login')}
-              className="w-full min-h-[44px] py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>{t.backToLogin}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setAuthView('login')}
+            className="w-full min-h-[44px] py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>{t.backToLogin}</span>
+          </button>
         </div>
       </div>
     );
   }
 
+  const FieldHint = ({
+    errorMsg,
+    hint
+  }: {
+    errorMsg?: string;
+    hint?: string;
+  }) =>
+    errorMsg ? (
+      <p className="mt-1 text-[11px] font-semibold text-rose-600 flex items-center gap-1">
+        <AlertCircle className="w-3 h-3 shrink-0" />
+        {errorMsg}
+      </p>
+    ) : hint ? (
+      <p className="mt-1 text-[10.5px] text-slate-500">{hint}</p>
+    ) : null;
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4 sm:p-6 relative">
-      {/* Top Header with Back Button and Language Selector */}
+    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white flex flex-col justify-center items-center p-4 sm:p-6 relative">
       <div className="w-full max-w-md flex items-center justify-between mb-3 px-1">
         <button
           type="button"
@@ -295,13 +350,10 @@ export const SignUpView: React.FC = () => {
           <ArrowLeft className="w-4 h-4" />
           <span>{step === 2 ? t.back : t.backToLogin}</span>
         </button>
-
-        {/* Language Selector */}
         <LanguageSelector variant="compact" />
       </div>
 
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-slate-200/90 p-6 sm:p-8">
-        {/* Brand Icon & Heading */}
         <div className="text-center mb-5">
           <div className="w-11 h-11 bg-blue-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-2 shadow-sm shadow-blue-600/20">
             <Shield className="w-5 h-5" />
@@ -309,31 +361,28 @@ export const SignUpView: React.FC = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             {t.getStartedHeading}
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            {t.getStartedSubtitle}
-          </p>
+          <p className="text-xs text-slate-500 mt-1">{t.getStartedSubtitle}</p>
 
-          {/* Progress Indicator: Step 1 of 2 / Step 2 of 2 */}
-          <div className="mt-3 flex items-center justify-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`w-2.5 h-2.5 rounded-full transition-all ${
-                  step === 1 ? 'bg-blue-600 ring-4 ring-blue-100' : 'bg-emerald-500'
-                }`}
-              />
-              <span
-                className={`w-2.5 h-2.5 rounded-full transition-all ${
-                  step === 2 ? 'bg-blue-600 ring-4 ring-blue-100' : 'bg-slate-200'
-                }`}
+          {/* Progress */}
+          <div className="mt-4 px-1">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 mb-1.5">
+              <span className={step === 1 ? 'text-blue-700' : 'text-emerald-600'}>
+                {t.step1Title}
+              </span>
+              <span className={step === 2 ? 'text-blue-700' : ''}>{t.step2Title}</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-all duration-300 ease-out"
+                style={{ width: step === 1 ? '50%' : '100%' }}
               />
             </div>
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-1.5">
               {t.stepIndicator(step, 2)}
-            </span>
+            </p>
           </div>
         </div>
 
-        {/* Validation Error Banner */}
         {error && (
           <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold text-rose-700 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -341,26 +390,17 @@ export const SignUpView: React.FC = () => {
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* STEP 1: PERSONAL PROFILE                                                  */}
-        {/* ========================================================================= */}
         {step === 1 && (
-          <form onSubmit={handleContinueToStep2} className="space-y-4">
-            {/* 1. Profile Picture */}
+          <form onSubmit={handleContinueToStep2} className="space-y-4" noValidate>
             <div className="flex flex-col items-center pb-1">
               <div className="relative group">
-                <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-100 border-2 border-slate-200 flex items-center justify-center shadow-xs">
+                <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-100 border-2 border-slate-200 flex items-center justify-center shadow-xs ring-4 ring-slate-50">
                   {avatar ? (
-                    <img
-                      src={avatar}
-                      alt="Avatar preview"
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={avatar} alt="Avatar preview" className="w-full h-full object-cover" />
                   ) : (
                     <User className="w-9 h-9 text-slate-400" />
                   )}
                 </div>
-
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -402,7 +442,6 @@ export const SignUpView: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. Name (Required) */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
                 {t.name} <span className="text-rose-500">*</span>
@@ -411,39 +450,111 @@ export const SignUpView: React.FC = () => {
                 <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
-                  required
+                  autoComplete="name"
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value);
                     setError(null);
+                    clearFieldError('name');
                   }}
                   placeholder="Raphael Rivera"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                  className={`${inputBase} pl-10 pr-3.5 ${fieldErrors.name ? inputErr : inputOk}`}
                 />
               </div>
+              <FieldHint errorMsg={fieldErrors.name} />
             </div>
 
-            {/* 3. Instagram Handle (Optional) */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
-                {t.instagramHandle} <span className="text-slate-400 font-normal">({t.optional})</span>
+                {t.email} <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError(null);
+                    clearFieldError('email');
+                  }}
+                  placeholder="marketer@agency.com"
+                  className={`${inputBase} pl-10 pr-3.5 ${fieldErrors.email ? inputErr : inputOk}`}
+                />
+              </div>
+              <FieldHint errorMsg={fieldErrors.email} />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
+                {t.password} <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError(null);
+                    clearFieldError('password');
+                  }}
+                  placeholder="••••••••"
+                  className={`${inputBase} pl-10 pr-10 ${fieldErrors.password ? inputErr : inputOk}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  aria-label={showPassword ? t.hidePassword : t.showPassword}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {password && !fieldErrors.password && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="flex-1 h-1 rounded-full bg-slate-100 overflow-hidden flex gap-0.5">
+                    {[1, 2, 3].map((n) => (
+                      <div
+                        key={n}
+                        className={`h-full flex-1 rounded-full transition-colors ${
+                          passwordStrength.score >= n
+                            ? passwordStrength.score === 1
+                              ? 'bg-rose-400'
+                              : passwordStrength.score === 2
+                                ? 'bg-amber-400'
+                                : 'bg-emerald-500'
+                            : 'bg-transparent'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-500">{passwordStrength.label}</span>
+                </div>
+              )}
+              <FieldHint errorMsg={fieldErrors.password} hint={t.passwordRequirements} />
+            </div>
+
+         
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
+                {t.instagramHandle}{' '}
+                <span className="text-slate-400 font-normal">({t.optional})</span>
               </label>
               <div className="relative">
                 <Instagram className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={instagram}
-                  onChange={(e) => {
-                    setInstagram(e.target.value);
-                    setError(null);
-                  }}
+                  onChange={(e) => setInstagram(e.target.value)}
                   placeholder="@marketer.campaigns"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                  className={`${inputBase} pl-10 pr-3.5 ${inputOk}`}
                 />
               </div>
             </div>
 
-            {/* 4. Preferred Flyer Language */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
                 {t.preferredFlyerLanguage} <span className="text-rose-500">*</span>
@@ -451,56 +562,58 @@ export const SignUpView: React.FC = () => {
               <select
                 value={preferredFlyerLanguage}
                 onChange={(e) => setPreferredFlyerLanguage(e.target.value as FlyerLanguage)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow cursor-pointer"
+                className={`${inputBase} px-3.5 ${inputOk} cursor-pointer`}
               >
                 <option value="en">English</option>
                 <option value="es">Spanish (Español)</option>
               </select>
             </div>
 
-            {/* 5. Preferred Flyer Category (Multi-select) */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
                 {t.preferredFlyerCategory} <span className="text-rose-500">*</span>
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleToggleCategory('work_injury')}
-                  className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                    preferredFlyerCategories.includes('work_injury')
-                      ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-3xs'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <span>{t.workInjury}</span>
-                  {preferredFlyerCategories.includes('work_injury') ? (
-                    <CheckSquare className="w-4 h-4 text-blue-600" />
-                  ) : (
-                    <Square className="w-4 h-4 text-slate-400" />
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleToggleCategory('car_accident')}
-                  className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                    preferredFlyerCategories.includes('car_accident')
-                      ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-3xs'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <span>{t.carAccident}</span>
-                  {preferredFlyerCategories.includes('car_accident') ? (
-                    <CheckSquare className="w-4 h-4 text-blue-600" />
-                  ) : (
-                    <Square className="w-4 h-4 text-slate-400" />
-                  )}
-                </button>
+              <p className="text-[11px] text-slate-500 mb-2">
+                Select one or more niches you want to receive content for.
+              </p>
+              <div
+                className={`flex flex-wrap gap-1.5 p-2.5 rounded-xl border bg-slate-50 ${
+                  fieldErrors.categories ? 'border-rose-400 bg-rose-50/40' : 'border-slate-300'
+                }`}
+              >
+                {FLYER_CATEGORIES.map((cat) => {
+                  const selected = preferredFlyerCategories.includes(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setPreferredFlyerCategories((prev) =>
+                          selected ? prev.filter((c) => c !== cat.id) : [...prev, cat.id]
+                        );
+                        setError(null);
+                        clearFieldError('categories');
+                      }}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                        selected
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50'
+                      }`}
+                    >
+                      {selected && <Check className="w-3 h-3" />}
+                      {getFlyerCategoryLabel(cat.id, language)}
+                    </button>
+                  );
+                })}
               </div>
+              {preferredFlyerCategories.length > 0 && (
+                <p className="text-[10px] font-semibold text-slate-500 mt-1.5">
+                  {preferredFlyerCategories.length} selected
+                </p>
+              )}
+              <FieldHint errorMsg={fieldErrors.categories} />
             </div>
 
-            {/* Actions: Back to Login & Continue */}
             <div className="pt-2 flex items-center justify-between gap-3">
               <button
                 type="button"
@@ -509,7 +622,6 @@ export const SignUpView: React.FC = () => {
               >
                 {t.backToLogin}
               </button>
-
               <button
                 type="submit"
                 className="w-1/2 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
@@ -521,65 +633,8 @@ export const SignUpView: React.FC = () => {
           </form>
         )}
 
-        {/* ========================================================================= */}
-        {/* STEP 2: ACCOUNT & LOCATION                                                */}
-        {/* ========================================================================= */}
         {step === 2 && (
-          <form onSubmit={handleSubmit} className="space-y-3.5">
-            {/* 1. Email */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
-                {t.email} <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setError(null);
-                  }}
-                  placeholder="marketer@agency.com"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
-                />
-              </div>
-            </div>
-
-            {/* 2. Password */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
-                {t.password} <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setError(null);
-                  }}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                  aria-label={showPassword ? t.hidePassword : t.showPassword}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              <p className="text-[10.5px] text-slate-500 mt-1">
-                {t.passwordRequirements}
-              </p>
-            </div>
-
-            {/* 3. Country (Synchronized with Phone Code) */}
+          <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
                 {t.country} <span className="text-rose-500">*</span>
@@ -587,7 +642,7 @@ export const SignUpView: React.FC = () => {
               <select
                 value={selectedCountry.code}
                 onChange={(e) => handleCountryChange(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow cursor-pointer"
+                className={`${inputBase} px-3.5 ${inputOk} cursor-pointer`}
               >
                 {COUNTRIES.map((c) => (
                   <option key={c.code} value={c.code}>
@@ -597,11 +652,19 @@ export const SignUpView: React.FC = () => {
               </select>
             </div>
 
-            {/* 4. Phone Number (Country-aware) */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
-                {t.phoneNumber} <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                  {t.phoneNumber} <span className="text-rose-500">*</span>
+                </label>
+                <span
+                  className={`text-[10.5px] font-bold tabular-nums ${
+                    phoneDigits >= phoneMax ? 'text-amber-600' : 'text-slate-400'
+                  }`}
+                >
+                  {t.phoneDigitsHint(phoneDigits, phoneMax)}
+                </span>
+              </div>
               <div className="flex gap-2">
                 <span className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 shrink-0 select-none">
                   <span>{selectedCountry.flag}</span>
@@ -611,17 +674,22 @@ export const SignUpView: React.FC = () => {
                   <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="tel"
-                    required
+                    inputMode="tel"
+                    autoComplete="tel-national"
                     value={phoneNumber}
                     onChange={(e) => handlePhoneChange(e.target.value)}
-                    placeholder="300 1234567"
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                    placeholder={`${'0'.repeat(Math.min(phoneExpected, 4))}…`}
+                    maxLength={phoneMax + 6}
+                    className={`${inputBase} pl-10 pr-3.5 ${fieldErrors.phone ? inputErr : inputOk}`}
                   />
                 </div>
               </div>
+              <FieldHint
+                errorMsg={fieldErrors.phone}
+                hint={`About ${phoneExpected} digits for ${selectedCountry.name} (max ${phoneMax}).`}
+              />
             </div>
 
-            {/* 5. State / Region */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
                 {t.state} <span className="text-rose-500">*</span>
@@ -632,9 +700,9 @@ export const SignUpView: React.FC = () => {
                   onChange={(e) => {
                     setState(e.target.value);
                     setError(null);
+                    clearFieldError('state');
                   }}
-                  required
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow cursor-pointer"
+                  className={`${inputBase} px-3.5 ${fieldErrors.state ? inputErr : inputOk} cursor-pointer`}
                 >
                   <option value="">{t.selectState}</option>
                   {selectedCountry.states.map((st) => (
@@ -646,19 +714,19 @@ export const SignUpView: React.FC = () => {
               ) : (
                 <input
                   type="text"
-                  required
                   value={state}
                   onChange={(e) => {
                     setState(e.target.value);
                     setError(null);
+                    clearFieldError('state');
                   }}
-                  placeholder={t.enterCity}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                  placeholder={t.selectState}
+                  className={`${inputBase} px-3.5 ${fieldErrors.state ? inputErr : inputOk}`}
                 />
               )}
+              <FieldHint errorMsg={fieldErrors.state} />
             </div>
 
-            {/* 6. City & Postal Code (Side-by-side) */}
             <div className="grid grid-cols-2 gap-2.5">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
@@ -666,15 +734,13 @@ export const SignUpView: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  required
+                  autoComplete="address-level2"
                   value={city}
-                  onChange={(e) => {
-                    setCity(e.target.value);
-                    setError(null);
-                  }}
+                  onChange={(e) => handleCityChange(e.target.value)}
                   placeholder="Los Angeles"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                  className={`${inputBase} px-3.5 ${fieldErrors.city ? inputErr : inputOk}`}
                 />
+                <FieldHint errorMsg={fieldErrors.city} hint={t.cityNameHint} />
               </div>
 
               <div>
@@ -683,19 +749,22 @@ export const SignUpView: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  required
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="postal-code"
                   value={postalCode}
-                  onChange={(e) => {
-                    setPostalCode(e.target.value);
-                    setError(null);
-                  }}
+                  onChange={(e) => handlePostalChange(e.target.value)}
                   placeholder={selectedCountry.postalPlaceholder}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                  maxLength={POSTAL_CODE_LENGTH}
+                  className={`${inputBase} px-3.5 ${fieldErrors.postalCode ? inputErr : inputOk} tabular-nums`}
+                />
+                <FieldHint
+                  errorMsg={fieldErrors.postalCode}
+                  hint={`${t.postalCodeHint} (${postalCode.length}/${POSTAL_CODE_LENGTH})`}
                 />
               </div>
             </div>
 
-            {/* Actions: Back & Sign Up */}
             <div className="pt-2 flex items-center justify-between gap-3">
               <button
                 type="button"
@@ -705,7 +774,6 @@ export const SignUpView: React.FC = () => {
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>{t.back}</span>
               </button>
-
               <button
                 type="submit"
                 className="w-2/3 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"

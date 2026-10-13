@@ -9,15 +9,20 @@ import {
   AlertCircle,
   Clock,
   MoreVertical,
-  FileText,
-  Send,
   Pencil,
   Layers,
   UserCheck,
-  Users,
-  User
+  MessageSquare
 } from 'lucide-react';
 import { resolveImageUrl } from '../../utils/imageAssets';
+import { CopyButton } from '../common/CopyButton';
+
+/** Same category icons as BulkContentSenderView */
+const CATEGORY_ICON = {
+  flyer: { Icon: Layers, bg: 'bg-blue-600', label: 'Flyer' },
+  personalized: { Icon: UserCheck, bg: 'bg-purple-600', label: 'Personalized' },
+  normal: { Icon: MessageSquare, bg: 'bg-slate-600', label: 'Normal' }
+} as const;
 
 interface Props {
   message: Message;
@@ -55,7 +60,9 @@ export const ContentMessageCard: React.FC<Props> = ({ message, isHighlighted = f
 
   const isFlyer = message.contentCategory === 'flyer';
   const isPersonalized = message.contentCategory === 'personalized';
-  const isCategorized = isFlyer || isPersonalized;
+  const isNormal = message.contentCategory === 'normal';
+  // Flyer / Personalized / Normal all use category icon (same as Bulk screen)
+  const isCategorized = isFlyer || isPersonalized || isNormal;
 
   const handlePostedClick = () => {
     if (status === 'posted') return;
@@ -234,37 +241,22 @@ export const ContentMessageCard: React.FC<Props> = ({ message, isHighlighted = f
     );
   };
 
-  // Parse card title & subtitle
-  let cardTitle = message.campaignName || 'Deliverable';
-  let cardSubtitle = message.caption || message.platformTarget || '';
+  // Title = campaign name only (no category label pills)
+  const cardTitle = message.campaignName?.trim() || '';
+  const messageBody = message.text?.trim() || '';
+  const showMessageBody = Boolean(messageBody && messageBody !== cardTitle);
 
-  if (message.text && !message.campaignName) {
-    const periodIdx = message.text.indexOf('.');
-    if (periodIdx !== -1 && periodIdx < 70) {
-      cardTitle = message.text.slice(0, periodIdx + 1).trim();
-      const rest = message.text.slice(periodIdx + 1).trim();
-      if (rest) {
-        cardSubtitle = rest;
-      }
-    } else {
-      cardTitle = message.text;
-    }
-  }
+  const categoryKey = isPersonalized
+    ? 'personalized'
+    : isNormal
+      ? 'normal'
+      : 'flyer';
+  const { Icon: IconComponent, bg: iconBg, label: categoryLabel } =
+    CATEGORY_ICON[isCategorized ? categoryKey : 'flyer'];
 
-  // Determine icon & background color for the card header icon badge
-  let iconBg = 'bg-blue-600';
-  let IconComponent = FileText;
-
-  if (isPersonalized) {
-    iconBg = 'bg-purple-600';
-    IconComponent = UserCheck;
-  } else if (isFlyer) {
-    iconBg = 'bg-blue-600';
-    IconComponent = Layers;
-  } else if (message.id.includes('5') || cardTitle.toLowerCase().includes('webinar')) {
-    iconBg = 'bg-indigo-600';
-    IconComponent = FileText;
-  }
+  const showPostingFooter = Boolean(
+    !isNormal && (isFlyer || message.isPostable || hasImages)
+  );
 
   // =========================================================================
   // 1. SENT MESSAGE (RIGHT ALIGNED — SENT BY LOGGED-IN USER)
@@ -281,55 +273,20 @@ export const ContentMessageCard: React.FC<Props> = ({ message, isHighlighted = f
                 isHighlighted ? 'ring-2 ring-blue-500 shadow-md border-blue-400' : ''
               }`}
             >
-              {/* Card Header Row */}
+              {/* Header: category icon + title only */}
               <div className="flex items-start justify-between gap-2.5">
                 <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                  {/* Small colored icon badge */}
                   <div
                     className={`w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs mt-0.5 ${iconBg}`}
+                    title={categoryLabel}
                   >
                     <IconComponent className="w-4 h-4" />
                   </div>
-
-                  <div className="min-w-0 flex-1">
-                    {/* Category Badge & Recipient Context */}
-                    <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                      {isFlyer && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-blue-100 text-blue-700 border border-blue-200 shadow-3xs">
-                          <Layers className="w-3 h-3 text-blue-600" />
-                          <span>FLYER</span>
-                        </span>
-                      )}
-                      {isPersonalized && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-purple-100 text-purple-700 border border-purple-200 shadow-3xs">
-                          <UserCheck className="w-3 h-3 text-purple-600" />
-                          <span>PERSONALIZED</span>
-                        </span>
-                      )}
-
-                      {isFlyer && (
-                        <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-slate-500">
-                          <Users className="w-3 h-3 text-slate-400" />
-                          <span>Shared with all marketers</span>
-                        </span>
-                      )}
-                      {isPersonalized && message.recipientName && (
-                        <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-purple-700">
-                          <User className="w-3 h-3 text-purple-500" />
-                          <span>To: {message.recipientName}</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="text-[13px] font-bold text-slate-900 leading-snug tracking-tight">
+                  {cardTitle ? (
+                    <h3 className="text-[13px] font-bold text-slate-900 leading-snug tracking-tight min-w-0 pt-1">
                       {cardTitle}
                     </h3>
-                    {cardSubtitle && (
-                      <p className="text-xs text-slate-500 font-normal mt-0.5">
-                        {cardSubtitle}
-                      </p>
-                    )}
-                  </div>
+                  ) : null}
                 </div>
 
                 {hasImages && (
@@ -350,7 +307,7 @@ export const ContentMessageCard: React.FC<Props> = ({ message, isHighlighted = f
                             type="button"
                             onClick={() => {
                               setMenuOpen(false);
-                              openImageViewer(flyerImages, 0, cardTitle);
+                              openImageViewer(flyerImages, 0, cardTitle || categoryLabel);
                             }}
                             className="w-full px-3 py-1.5 text-left hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                           >
@@ -364,18 +321,18 @@ export const ContentMessageCard: React.FC<Props> = ({ message, isHighlighted = f
                 )}
               </div>
 
-              {/* Gallery (if flyer images exist) */}
               {hasImages && renderGallery()}
 
-              {/* Text message (if provided) */}
-              {message.text && message.text !== cardTitle && (
-                <p className="text-[13px] text-slate-800 leading-relaxed font-normal whitespace-pre-wrap">
-                  {message.text}
-                </p>
+              {showMessageBody && (
+                <div className="flex items-start gap-1.5">
+                  <p className="flex-1 min-w-0 text-[13px] text-slate-800 leading-relaxed font-normal whitespace-pre-wrap">
+                    {messageBody}
+                  </p>
+                  <CopyButton textToCopy={messageBody} tooltipPosition="top" />
+                </div>
               )}
 
-              {/* Posting Status Footer for flyer/personalized cards */}
-              {(isFlyer || message.isPostable || hasImages) && renderPostingFooter()}
+              {showPostingFooter && renderPostingFooter()}
             </div>
 
             {/* Sent Metadata Row */}
@@ -401,12 +358,18 @@ export const ContentMessageCard: React.FC<Props> = ({ message, isHighlighted = f
             }`}
           >
             {message.text && (
-              <p className="text-[13.5px] text-white leading-relaxed font-normal whitespace-pre-wrap">
-                {message.text}
-              </p>
+              <div className="flex items-start gap-1.5">
+                <p className="flex-1 min-w-0 text-[13.5px] text-white leading-relaxed font-normal whitespace-pre-wrap">
+                  {message.text}
+                </p>
+                <CopyButton
+                  textToCopy={message.text}
+                  className="text-white/70 hover:text-white hover:bg-white/15"
+                  tooltipPosition="top"
+                />
+              </div>
             )}
 
-            {/* If sent message contains flyer images */}
             {hasImages && (
               <div className="mt-2.5 grid grid-cols-2 gap-2">
                 {flyerImages.slice(0, 2).map((img, idx) => (
@@ -417,7 +380,7 @@ export const ContentMessageCard: React.FC<Props> = ({ message, isHighlighted = f
                   >
                     <img
                       src={img}
-                      alt={`Attached Flyer ${idx + 1}`}
+                      alt={`Attached ${idx + 1}`}
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
                     />
@@ -458,26 +421,30 @@ export const ContentMessageCard: React.FC<Props> = ({ message, isHighlighted = f
             </span>
           </div>
 
-          {/* Text bubble */}
+          {/* Plain chat (no category) — no category icon */}
           <div
             className={`w-fit max-w-full rounded-2xl rounded-tl-xs p-3.5 bg-white border border-slate-200/70 shadow-xs ${
               isHighlighted ? 'ring-2 ring-blue-500 shadow-md border-blue-400' : ''
             }`}
           >
-            <p className="text-[13.5px] text-slate-800 leading-relaxed font-normal whitespace-pre-wrap">
-              {message.text}
-            </p>
+            {message.text && (
+              <div className="flex items-start gap-1.5">
+                <p className="flex-1 min-w-0 text-[13.5px] text-slate-800 leading-relaxed font-normal whitespace-pre-wrap">
+                  {message.text}
+                </p>
+                <CopyButton textToCopy={message.text} tooltipPosition="top" />
+              </div>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
-  // Received Flyer or Personalized content card
+  // Received Flyer / Personalized / Normal card (Bulk icons — no label pills)
   return (
     <div className="flex flex-col items-start w-full group">
       <div className="flex flex-col items-start w-full max-w-[82%] sm:max-w-[70%] space-y-1">
-        {/* Top Metadata: Sender name (left) & Timestamp (right) */}
         <div className="flex items-center justify-between w-full px-1 text-xs select-none">
           <span className="font-normal text-slate-500 text-xs truncate">
             {message.senderName}
@@ -487,124 +454,94 @@ export const ContentMessageCard: React.FC<Props> = ({ message, isHighlighted = f
           </span>
         </div>
 
-        {/* Main White Card */}
         <div
           className={`w-full bg-white rounded-[16px] border border-slate-200/80 shadow-xs p-2.5 sm:p-3 space-y-2.5 overflow-hidden transition-all duration-200 ${
             isHighlighted ? 'ring-2 ring-blue-500 shadow-md border-blue-400' : ''
           }`}
         >
-          {/* Card Header Row */}
           <div className="flex items-start justify-between gap-2.5">
-            <div className="flex items-start gap-2.5 min-w-0">
-              {/* Small colored icon badge */}
+            <div className="flex items-start gap-2.5 min-w-0 flex-1">
               <div
                 className={`w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs mt-0.5 ${iconBg}`}
+                title={categoryLabel}
               >
                 <IconComponent className="w-4 h-4" />
               </div>
-
-              <div className="min-w-0 flex-1">
-                {/* Category Badge & Recipient Context */}
-                <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                  {isFlyer && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-blue-100 text-blue-700 border border-blue-200 shadow-3xs">
-                      <Layers className="w-3 h-3 text-blue-600" />
-                      <span>FLYER</span>
-                    </span>
-                  )}
-                  {isPersonalized && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-purple-100 text-purple-700 border border-purple-200 shadow-3xs">
-                      <UserCheck className="w-3 h-3 text-purple-600" />
-                      <span>PERSONALIZED</span>
-                    </span>
-                  )}
-
-                  {isFlyer && (
-                    <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-slate-500">
-                      <Users className="w-3 h-3 text-slate-400" />
-                      <span>Shared with all marketers</span>
-                    </span>
-                  )}
-                </div>
-
-                <h3 className="text-[13px] font-bold text-slate-900 leading-snug tracking-tight">
+              {cardTitle ? (
+                <h3 className="text-[13px] font-bold text-slate-900 leading-snug tracking-tight min-w-0 pt-1">
                   {cardTitle}
                 </h3>
-                {cardSubtitle && (
-                  <p className="text-xs text-slate-400 font-normal mt-0.5 truncate">
-                    {cardSubtitle}
-                  </p>
+              ) : null}
+            </div>
+
+            {!isNormal && (
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="More options"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+
+                {menuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-slate-200/80 py-1 z-50 text-xs font-medium text-slate-700 animate-in fade-in-50 zoom-in-95">
+                      {hasImages && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            openImageViewer(flyerImages, 0, cardTitle || categoryLabel);
+                          }}
+                          className="w-full px-3 py-1.5 text-left hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-slate-500" />
+                          <span>View Flyers</span>
+                        </button>
+                      )}
+                      {(isFlyer || message.isPostable) && status !== 'posted' && (
+                        <button
+                          type="button"
+                          onClick={handlePostedClick}
+                          className="w-full px-3 py-1.5 text-left hover:bg-emerald-50 text-emerald-700 flex items-center gap-2 cursor-pointer font-semibold"
+                        >
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Mark as Posted</span>
+                        </button>
+                      )}
+                      {(isFlyer || message.isPostable) && (
+                        <button
+                          type="button"
+                          onClick={handleNotPostedClick}
+                          className="w-full px-3 py-1.5 text-left hover:bg-amber-50 text-amber-800 flex items-center gap-2 cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Edit Reason</span>
+                        </button>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
-            </div>
-
-            {/* 3-dots Overflow Menu */}
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setMenuOpen(!menuOpen)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                title="More options"
-                aria-label="More options"
-              >
-                <MoreVertical className="w-4 h-4" />
-              </button>
-
-              {menuOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-slate-200/80 py-1 z-50 text-xs font-medium text-slate-700 animate-in fade-in-50 zoom-in-95">
-                    {hasImages && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          openImageViewer(flyerImages, 0, cardTitle);
-                        }}
-                        className="w-full px-3 py-1.5 text-left hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-slate-500" />
-                        <span>View Flyers</span>
-                      </button>
-                    )}
-                    {(isFlyer || message.isPostable) && status !== 'posted' && (
-                      <button
-                        type="button"
-                        onClick={handlePostedClick}
-                        className="w-full px-3 py-1.5 text-left hover:bg-emerald-50 text-emerald-700 flex items-center gap-2 cursor-pointer font-semibold"
-                      >
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Mark as Posted</span>
-                      </button>
-                    )}
-                    {(isFlyer || message.isPostable) && (
-                      <button
-                        type="button"
-                        onClick={handleNotPostedClick}
-                        className="w-full px-3 py-1.5 text-left hover:bg-amber-50 text-amber-800 flex items-center gap-2 cursor-pointer"
-                      >
-                        <Pencil className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Edit Reason</span>
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* Thumbnail Gallery (if images present) */}
           {hasImages && renderGallery()}
 
-          {/* Text content if present */}
-          {message.text && message.text !== cardTitle && (
-            <p className="text-[13px] text-slate-800 leading-relaxed font-normal whitespace-pre-wrap">
-              {message.text}
-            </p>
+          {showMessageBody && (
+            <div className="flex items-start gap-1.5">
+              <p className="flex-1 min-w-0 text-[13px] text-slate-800 leading-relaxed font-normal whitespace-pre-wrap">
+                {messageBody}
+              </p>
+              <CopyButton textToCopy={messageBody} tooltipPosition="top" />
+            </div>
           )}
 
-          {/* Posting Status Footer inside card */}
-          {(isFlyer || message.isPostable || hasImages) && renderPostingFooter()}
+          {showPostingFooter && renderPostingFooter()}
         </div>
       </div>
     </div>

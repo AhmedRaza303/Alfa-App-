@@ -22,9 +22,11 @@ import {
   Pencil,
   FileText,
   Radio,
-  ArrowRight
+  ArrowRight,
+  MessageSquare
 } from 'lucide-react';
 import { ContentCategory } from '../../types';
+import { useShellLayout } from '../../context/ShellLayoutContext';
 
 // Common business and marketing emojis
 const MARKETING_EMOJIS = [
@@ -42,30 +44,9 @@ export const BulkContentSenderView: React.FC = () => {
     setActiveTab,
     showToast
   } = useApp();
+  const { isExpandedShell } = useShellLayout();
 
-  // Role Protection: Only Admin may access this page
-  if (currentUser?.role !== 'Admin') {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-slate-50">
-        <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mb-3 shadow-xs">
-          <ShieldAlert className="w-7 h-7" />
-        </div>
-        <h2 className="text-base font-bold text-slate-800 mb-1">Access Restricted</h2>
-        <p className="text-xs text-slate-500 max-w-xs mb-4">
-          Only authorized Alfa Operations administrators have permission to access the Bulk Content Sender.
-        </p>
-        <button
-          type="button"
-          onClick={() => setActiveTab('conversations')}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-        >
-          Return to Conversations
-        </button>
-      </div>
-    );
-  }
-
-  // Core Form State
+  // Core Form State (hooks before any early return)
   const [contentType, setContentType] = useState<ContentCategory>('flyer');
   const [isAllMarketers, setIsAllMarketers] = useState<boolean>(true);
   const [selectedConversationIds, setSelectedConversationIds] = useState<string[]>([]);
@@ -80,7 +61,7 @@ export const BulkContentSenderView: React.FC = () => {
   const [attachError, setAttachError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState<boolean>(false);
 
-  // Mobile View Switcher: 'composer' or 'preview'
+  // Phone-shell tab switcher: composer | preview (tablet shows both)
   const [mobileTab, setMobileTab] = useState<'composer' | 'preview'>('composer');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -302,181 +283,179 @@ export const BulkContentSenderView: React.FC = () => {
     title.trim() ||
     (contentType === 'flyer'
       ? 'Weekly Campaign Creatives'
-      : 'Personalized Deliverable');
+      : contentType === 'personalized'
+        ? 'Personalized Deliverable'
+        : 'Normal Message');
 
-  const previewRecipientText = isAllMarketers
-    ? 'Shared with all marketers'
-    : `To: ${resolvedRecipients.map((r) => r.name).join(', ')}`;
+  // Role Protection: Only Admin may access this page
+  if (currentUser?.role !== 'Admin') {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-slate-50">
+        <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mb-3 shadow-xs">
+          <ShieldAlert className="w-7 h-7" />
+        </div>
+        <h2 className="text-base font-bold text-slate-800 mb-1">Access Restricted</h2>
+        <p className="text-xs text-slate-500 max-w-xs mb-4">
+          Only authorized Alfa Operations administrators have permission to access the Bulk Content Sender.
+        </p>
+        <button
+          type="button"
+          onClick={() => setActiveTab('conversations')}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+        >
+          Return to Conversations
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#f4f7fb] overflow-y-auto">
-      <div className="max-w-6xl w-full mx-auto p-3 sm:p-5 lg:p-6 space-y-4 sm:space-y-5">
-        {/* ========================================================================= */}
-        {/* 1. TOP HEADER BANNER WITH MARKETER AUDIENCE COUNT                         */}
-        {/* ========================================================================= */}
-        <header className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-blue-100 text-blue-700 border border-blue-200">
-                  Admin Exclusive
+    <div className="flex flex-col h-full min-h-0 bg-slate-50 overflow-y-auto">
+      <div
+        className={`w-full mx-auto p-3 space-y-3 ${
+          isExpandedShell ? 'max-w-4xl p-4 space-y-4' : 'max-w-md'
+        }`}
+      >
+        {/* Compact toolbar (shell Header already shows page title) */}
+        <header className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <Users className="w-3 h-3" />
+                <span>{marketerList.length} Marketers</span>
+              </span>
+              {isExpandedShell && (
+                <span className="text-[10px] text-slate-400 font-medium inline-flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  Cross-Marketer Distribution
                 </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <Users className="w-3 h-3 text-emerald-600" />
-                  <span>{marketerList.length} Active Marketers</span>
-                </span>
-                <span className="text-xs text-slate-400 font-medium hidden sm:inline-flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Cross-Marketer Distribution</span>
-                </span>
-              </div>
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-                Bulk Content Sender
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed max-w-xl">
-                Distribute promotional campaign flyers or send tailored personalized instructions to one or multiple marketers from a single dashboard.
-              </p>
+              )}
             </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('conversations')}
+              className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+            >
+              <span>Conversations</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+          {/* Phone shell: Compose / Preview tabs (same pattern as other screens) */}
+          {!isExpandedShell && (
+            <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setActiveTab('conversations')}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100/70 border border-blue-200 px-3 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                onClick={() => setMobileTab('composer')}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${
+                  mobileTab === 'composer'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
               >
-                <span>View Conversations</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                Compose
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTab('preview')}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+                  mobileTab === 'preview'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Preview</span>
+                {hasContent && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
               </button>
             </div>
-          </div>
-
-          {/* Mobile Tab Switcher (Visible only on small screens) */}
-          <div className="mt-3 pt-3 border-t border-slate-100 flex lg:hidden items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setMobileTab('composer')}
-              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${
-                mobileTab === 'composer'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Compose Content
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileTab('preview')}
-              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
-                mobileTab === 'preview'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Live Preview</span>
-              {hasContent && (
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              )}
-            </button>
-          </div>
+          )}
         </header>
 
-        {/* ========================================================================= */}
-        {/* 2. RESPONSIVE 2-COLUMN WORKSPACE (STACKED ON MOBILE)                      */}
-        {/* ========================================================================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
-          {/* ======================================================================= */}
-          {/* LEFT COLUMN: COMPOSER CONTROLS (Cols 1-7 on desktop)                    */}
-          {/* ======================================================================= */}
+        <div
+          className={`grid gap-3 items-start ${
+            isExpandedShell ? 'grid-cols-12 gap-4' : 'grid-cols-1'
+          }`}
+        >
           <div
-            className={`lg:col-span-7 space-y-4 sm:space-y-5 ${
-              mobileTab === 'composer' ? 'block' : 'hidden lg:block'
+            className={`space-y-3 ${
+              isExpandedShell ? 'col-span-7 space-y-4' : ''
+            } ${
+              isExpandedShell || mobileTab === 'composer' ? 'block' : 'hidden'
             }`}
           >
             {/* Step 1: Content Category Selector */}
-            <section className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-extrabold flex items-center justify-center">
+            <section className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3.5 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-extrabold flex items-center justify-center shrink-0">
                     1
                   </span>
-                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider truncate">
                     Content Type <span className="text-rose-500">*</span>
                   </label>
                 </div>
-                <span className="text-[11px] text-slate-400 font-medium">
-                  Select delivery category
-                </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Flyer Card */}
-                <div
-                  onClick={() => setContentType('flyer')}
-                  className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer relative flex flex-col justify-between select-none ${
-                    contentType === 'flyer'
-                      ? 'border-blue-500 bg-blue-50/50 shadow-xs ring-1 ring-blue-400/30'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold uppercase tracking-wide bg-blue-100 text-blue-700 border border-blue-200 shadow-3xs">
-                        <Layers className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Flyer</span>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    {
+                      key: 'flyer' as const,
+                      label: 'Flyer',
+                      Icon: Layers,
+                      active: 'border-blue-500 bg-blue-50 ring-1 ring-blue-400/30',
+                      iconBox: 'bg-blue-600',
+                      check: 'border-blue-600 bg-blue-600'
+                    },
+                    {
+                      key: 'personalized' as const,
+                      label: 'Personalized',
+                      Icon: UserCheck,
+                      active: 'border-purple-500 bg-purple-50 ring-1 ring-purple-400/30',
+                      iconBox: 'bg-purple-600',
+                      check: 'border-purple-600 bg-purple-600'
+                    },
+                    {
+                      key: 'normal' as const,
+                      label: 'Normal',
+                      Icon: MessageSquare,
+                      active: 'border-slate-500 bg-slate-50 ring-1 ring-slate-400/30',
+                      iconBox: 'bg-slate-600',
+                      check: 'border-slate-600 bg-slate-600'
+                    }
+                  ] as const
+                ).map((opt) => {
+                  const selected = contentType === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setContentType(opt.key)}
+                      className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-center gap-1.5 text-center ${
+                        selected
+                          ? opt.active
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-white ${opt.iconBox}`}
+                      >
+                        <opt.Icon className="w-4 h-4" />
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-800 leading-tight">
+                        {opt.label}
                       </span>
                       <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                          contentType === 'flyer'
-                            ? 'border-blue-600 bg-blue-600 text-white'
-                            : 'border-slate-300 bg-white'
+                        className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                          selected ? `${opt.check} text-white` : 'border-slate-300 bg-white'
                         }`}
                       >
-                        {contentType === 'flyer' && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        {selected && <Check className="w-2 h-2 stroke-[3]" />}
                       </div>
-                    </div>
-                    <h3 className="text-xs font-bold text-slate-900 mb-0.5">
-                      Campaign Flyer Broadcast
-                    </h3>
-                    <p className="text-[11px] text-slate-500 leading-normal">
-                      High-impact creatives for scheduled social rollout. Marketers review and mark posting status independently.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Personalized Card */}
-                <div
-                  onClick={() => setContentType('personalized')}
-                  className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer relative flex flex-col justify-between select-none ${
-                    contentType === 'personalized'
-                      ? 'border-purple-500 bg-purple-50/50 shadow-xs ring-1 ring-purple-400/30'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold uppercase tracking-wide bg-purple-100 text-purple-700 border border-purple-200 shadow-3xs">
-                        <UserCheck className="w-3.5 h-3.5 text-purple-600" />
-                        <span>Personalized</span>
-                      </span>
-                      <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                          contentType === 'personalized'
-                            ? 'border-purple-600 bg-purple-600 text-white'
-                            : 'border-slate-300 bg-white'
-                        }`}
-                      >
-                        {contentType === 'personalized' && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                      </div>
-                    </div>
-                    <h3 className="text-xs font-bold text-slate-900 mb-0.5">
-                      Personalized Deliverable
-                    </h3>
-                    <p className="text-[11px] text-slate-500 leading-normal">
-                      Targeted instructions, VIP affiliate codes, or designated tasks sent exclusively to chosen marketers.
-                    </p>
-                  </div>
-                </div>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
@@ -869,8 +848,10 @@ export const BulkContentSenderView: React.FC = () => {
           {/* RIGHT COLUMN: LIVE PREVIEW & SEND SUMMARY (Cols 8-12 on desktop)         */}
           {/* ======================================================================= */}
           <div
-            className={`lg:col-span-5 space-y-4 sm:space-y-5 lg:sticky lg:top-4 ${
-              mobileTab === 'preview' ? 'block' : 'hidden lg:block'
+            className={`space-y-3 ${
+              isExpandedShell ? 'col-span-5 space-y-4 sticky top-3' : ''
+            } ${
+              isExpandedShell || mobileTab === 'preview' ? 'block' : 'hidden'
             }`}
           >
             {/* Live Message Preview Card */}
@@ -887,56 +868,46 @@ export const BulkContentSenderView: React.FC = () => {
                 </span>
               </div>
 
-              {/* Realistic Recipient Message Card Replica */}
-              <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-2.5 text-left transition-all">
-                {/* Header row */}
+              {/* Preview matches ContentMessageCard: icon + title only */}
+              <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-2.5 text-left">
                 <div className="flex items-start gap-2.5">
                   <div
                     className={`w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs mt-0.5 ${
-                      contentType === 'flyer' ? 'bg-blue-600' : 'bg-purple-600'
+                      contentType === 'flyer'
+                        ? 'bg-blue-600'
+                        : contentType === 'personalized'
+                          ? 'bg-purple-600'
+                          : 'bg-slate-600'
                     }`}
+                    title={
+                      contentType === 'flyer'
+                        ? 'Flyer'
+                        : contentType === 'personalized'
+                          ? 'Personalized'
+                          : 'Normal'
+                    }
                   >
                     {contentType === 'flyer' ? (
                       <Layers className="w-4 h-4" />
-                    ) : (
+                    ) : contentType === 'personalized' ? (
                       <UserCheck className="w-4 h-4" />
+                    ) : (
+                      <MessageSquare className="w-4 h-4" />
                     )}
                   </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                      {contentType === 'flyer' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase bg-blue-100 text-blue-700 border border-blue-200">
-                          <Layers className="w-2.5 h-2.5 text-blue-600" />
-                          <span>FLYER</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase bg-purple-100 text-purple-700 border border-purple-200">
-                          <UserCheck className="w-2.5 h-2.5 text-purple-600" />
-                          <span>PERSONALIZED</span>
-                        </span>
-                      )}
-
-                      <span className="text-[10px] text-slate-500 font-medium truncate max-w-[190px]">
-                        {previewRecipientText}
-                      </span>
-                    </div>
-
-                    <h3 className="text-xs font-bold text-slate-900 leading-snug tracking-tight">
-                      {previewTitle}
-                    </h3>
-                  </div>
+                  <h3 className="text-[13px] font-bold text-slate-900 leading-snug tracking-tight pt-1 min-w-0">
+                    {previewTitle}
+                  </h3>
                 </div>
 
-                {/* Attached Images Gallery Preview */}
                 {attachedImages.length > 0 && (
                   <div
-                    className={`grid gap-1.5 rounded-xl overflow-hidden ${
+                    className={`grid gap-1.5 ${
                       attachedImages.length === 1
                         ? 'grid-cols-1'
                         : attachedImages.length === 2
-                        ? 'grid-cols-2'
-                        : 'grid-cols-3'
+                          ? 'grid-cols-2'
+                          : 'grid-cols-3'
                     }`}
                   >
                     {attachedImages.map((img, idx) => (
@@ -946,7 +917,7 @@ export const BulkContentSenderView: React.FC = () => {
                       >
                         <img
                           src={img}
-                          alt={`Flyer ${idx + 1}`}
+                          alt={`Attachment ${idx + 1}`}
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -954,48 +925,29 @@ export const BulkContentSenderView: React.FC = () => {
                   </div>
                 )}
 
-                {/* Message Instructions Text */}
                 {messageText.trim() ? (
-                  <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-[13px] text-slate-800 leading-relaxed whitespace-pre-wrap">
                     {messageText.trim()}
                   </p>
-                ) : (
-                  <p className="text-xs text-slate-400 italic font-normal">
-                    [No additional message instructions provided]
-                  </p>
-                )}
+                ) : null}
 
-                {/* Posting Status Footer Preview */}
-                {(contentType === 'flyer' || attachedImages.length > 0) && (
+                {(contentType === 'flyer' ||
+                  (contentType === 'personalized' && attachedImages.length > 0)) && (
                   <div className="bg-[#fff7ed] border border-amber-100 rounded-xl px-2.5 py-2 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Clock className="w-4 h-4 text-amber-500 shrink-0" />
-                      <div className="min-w-0">
-                        <span className="text-[11px] font-bold text-amber-950 block leading-tight">
-                          Pending Status
-                        </span>
-                        <span className="text-[10px] text-amber-700 block leading-tight truncate">
-                          Requires client approval
-                        </span>
-                      </div>
+                      <span className="text-[11px] font-bold text-amber-950">Pending</span>
                     </div>
-
                     <div className="flex items-center gap-1 shrink-0">
-                      <span className="px-2 py-0.5 bg-emerald-600 text-white rounded-md text-[10.5px] font-bold shadow-3xs">
+                      <span className="px-2 py-0.5 bg-emerald-600 text-white rounded-md text-[10.5px] font-bold">
                         Post
                       </span>
-                      <span className="px-2 py-0.5 bg-white text-amber-800 border border-amber-200 rounded-md text-[10.5px] font-semibold shadow-3xs">
+                      <span className="px-2 py-0.5 bg-white text-amber-800 border border-amber-200 rounded-md text-[10.5px] font-semibold">
                         Edit
                       </span>
                     </div>
                   </div>
                 )}
-
-                {/* Timestamp and delivery indicator */}
-                <div className="flex items-center justify-between pt-1 text-[10px] text-slate-400 border-t border-slate-100">
-                  <span>From: Admin (Operations)</span>
-                  <span>Today at {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
               </div>
             </div>
 
@@ -1012,7 +964,7 @@ export const BulkContentSenderView: React.FC = () => {
                 <div className="flex items-center justify-between py-1 border-b border-slate-50">
                   <span className="text-slate-500 font-medium">Category:</span>
                   <span className="font-bold text-slate-800 capitalize">
-                    {contentType} Campaign
+                    {contentType === 'normal' ? 'Normal Message' : `${contentType} Campaign`}
                   </span>
                 </div>
 
@@ -1053,7 +1005,13 @@ export const BulkContentSenderView: React.FC = () => {
                     {isSending
                       ? 'Distributing Content...'
                       : isAllMarketers
-                      ? `Broadcast ${contentType === 'flyer' ? 'Flyer' : 'Content'} to All (${marketerList.length})`
+                      ? `Broadcast ${
+                          contentType === 'flyer'
+                            ? 'Flyer'
+                            : contentType === 'personalized'
+                              ? 'Personalized'
+                              : 'Normal'
+                        } to All (${marketerList.length})`
                       : resolvedRecipients.length > 0
                       ? `Send to ${resolvedRecipients.length} Marketer${resolvedRecipients.length > 1 ? 's' : ''}`
                       : 'Select Marketers to Send'}

@@ -20,9 +20,19 @@ export type AppLanguage = 'en' | 'es';
 
 export type FlyerLanguage = 'en' | 'es';
 
-export type FlyerCategory = 'work_injury' | 'car_accident';
+export type FlyerCategory =
+  | 'work_injury'
+  | 'car_accident'
+  | 'truck_accident'
+  | 'motorcycle_accident'
+  | 'slip_fall'
+  | 'workers_comp'
+  | 'medical_malpractice'
+  | 'product_liability'
+  | 'dog_bite'
+  | 'wrongful_death';
 
-export type ContentCategory = 'flyer' | 'personalized' | 'none';
+export type ContentCategory = 'flyer' | 'personalized' | 'normal';
 
 export interface User {
   id: string;
@@ -125,6 +135,9 @@ export type ActiveTab =
   | 'conversations'
   | 'bulk_sender'
   | 'marketer_requests'
+  | 'analytics'
+  | 'performance'
+  | 'help'
   | 'notifications'
   | 'profile';
 

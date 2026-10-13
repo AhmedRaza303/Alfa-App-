@@ -32,7 +32,7 @@ interface ImageViewerState {
 }
 
 export interface SendMessageOptions {
-  category?: 'flyer' | 'personalized';
+  category?: 'flyer' | 'personalized' | 'normal';
   title?: string;
   images?: string[];
   recipientUserId?: string;
@@ -79,6 +79,7 @@ interface AppContextType {
   sendBulkMessage: (options: BulkSendOptions) => { success: boolean; deliveredCount: number; message?: string };
   markMessagesAsRead: (conversationId: string) => void;
   pendingActionsCount: number;
+  pendingMarketerRequestsCount: number;
 
   // Modal for Not Posted
   notPostedModal: {
@@ -274,6 +275,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return users.find((u) => u.id === currentUserId) || null;
   }, [users, currentUserId]);
 
+  // Force-clear session if a marketer is not approved (no app activity allowed)
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      currentUser?.role === 'Marketer' &&
+      currentUser.approvalStatus !== 'approved'
+    ) {
+      setIsAuthenticated(false);
+      setCurrentUserId(null);
+      setAuthView('login');
+      setActiveConversationId(null);
+      setActiveTab('conversations');
+    }
+  }, [isAuthenticated, currentUser]);
+
   const conversations = useMemo(() => {
     if (!currentUserId) return [];
     return conversationsMap[currentUserId] || [];
@@ -327,6 +343,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const unreadNotificationCount = useMemo(() => {
     return notifications.filter((n) => !n.read).length;
   }, [notifications]);
+
+  const pendingMarketerRequestsCount = useMemo(() => {
+    return users.filter((u) => u.role === 'Marketer' && u.approvalStatus === 'pending').length;
+  }, [users]);
 
   // Actions
   const markAsPosted = useCallback(
@@ -687,6 +707,105 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // =======================================================================
+      // CASE 2.5: ADMIN SENDS NORMAL MESSAGE (PLAIN CHAT — NOT FLYER / PERSONALIZED)
+      // =======================================================================
+      if (isAdmin && category === 'normal') {
+        const targetConvId = options?.recipientUserId || conversationId;
+        const recipientName = options?.recipientName || 'Marketer';
+        const normalMsgId = `msg-normal-${Date.now()}`;
+        const isRaphaelTarget =
+          targetConvId === 'conv-raphael-ali' ||
+          targetConvId === 'contact-raphael' ||
+          conversationId === 'conv-raphael-ali' ||
+          recipientName.toLowerCase().includes('raphael');
+
+        setConversationsMap((prev) => {
+          const next = { ...prev };
+          const adminConvs = next['user-admin'] || [];
+
+          next['user-admin'] = adminConvs.map((c) => {
+            if (c.id === conversationId || c.id === targetConvId || (isRaphaelTarget && c.id === 'conv-raphael-ali')) {
+              const normalMsg: Message = {
+                id: normalMsgId,
+                conversationId: c.id,
+                senderId: 'user-admin',
+                senderName: 'Admin',
+                senderAvatar: currentUser.avatar,
+                isSenderMe: true,
+                type: attachedImages.length > 0 ? 'creative' : 'text',
+                contentCategory: 'normal',
+                text: text.trim(),
+                images: attachedImages.length > 0 ? attachedImages : undefined,
+                date: 'Today',
+                timestamp: timeStr,
+                isPostable: false,
+                deliveryStatus: 'delivered'
+              };
+              return {
+                ...c,
+                lastMessage: text.trim() || '[Normal message]',
+                lastMessageTime: timeStr,
+                messages: [...c.messages, normalMsg]
+              };
+            }
+            return c;
+          });
+
+          if (isRaphaelTarget && next['user-marketer']) {
+            next['user-marketer'] = next['user-marketer'].map((mc) => {
+              const marketerNormalMsg: Message = {
+                id: normalMsgId,
+                conversationId: mc.id,
+                senderId: 'user-admin',
+                senderName: 'Admin',
+                senderAvatar: currentUser.avatar,
+                isSenderMe: false,
+                type: attachedImages.length > 0 ? 'creative' : 'text',
+                contentCategory: 'normal',
+                text: text.trim(),
+                images: attachedImages.length > 0 ? attachedImages : undefined,
+                date: 'Today',
+                timestamp: timeStr,
+                isPostable: false,
+                isRead: false
+              };
+              return {
+                ...mc,
+                lastMessage: text.trim() || '[Normal message]',
+                lastMessageTime: timeStr,
+                unreadCount: mc.unreadCount + 1,
+                messages: [...mc.messages, marketerNormalMsg]
+              };
+            });
+          }
+
+          return next;
+        });
+
+        if (isRaphaelTarget) {
+          setNotificationsMap((prev) => ({
+            ...prev,
+            'user-marketer': [
+              {
+                id: `notif-${Date.now()}`,
+                userId: 'user-marketer',
+                type: 'message',
+                title: 'New Message',
+                description: `Admin: "${text.trim().slice(0, 50) || 'Sent a message'}"`,
+                timestamp: timeStr,
+                read: false,
+                conversationId: 'conv-marketer-assigned'
+              },
+              ...(prev['user-marketer'] || [])
+            ]
+          }));
+        }
+
+        showToast(`✓ Normal message sent to ${recipientName}!`, 'success');
+        return;
+      }
+
+      // =======================================================================
       // CASE 3: STANDARD MESSAGE (TEXT REPLY FROM MARKETER OR ADMIN)
       // =======================================================================
       const newMsgId = `msg-${Date.now()}`;
@@ -698,6 +817,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         senderAvatar: currentUser.avatar,
         isSenderMe: true,
         type: 'text',
+        contentCategory: currentUser.role === 'Admin' ? 'normal' : undefined,
         text: text.trim(),
         timestamp: timeStr,
         date: 'Today',
@@ -812,10 +932,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const now = new Date();
       const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const campaignId = `camp-bulk-${Date.now()}`;
+      const categoryLabel =
+        category === 'flyer' ? 'Flyer' : category === 'personalized' ? 'Personalized' : 'Normal';
       const campaignTitle =
         title?.trim() ||
-        (category === 'flyer' ? 'Flyer Campaign' : 'Personalized Deliverable');
+        (category === 'flyer'
+          ? 'Flyer Campaign'
+          : category === 'personalized'
+            ? 'Personalized Deliverable'
+            : 'Normal Message');
       const attachedImages = images.map((img) => resolveImageUrl(img));
+      const isPostableContent = category === 'flyer' || (category !== 'normal' && attachedImages.length > 0);
 
       // Determine targeted conversations in user-admin
       const adminConvs = conversationsMap['user-admin'] || [];
@@ -864,8 +991,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             images: attachedImages,
             date: 'Today',
             timestamp: timeStr,
-            isPostable: category === 'flyer' || attachedImages.length > 0,
-            postingStatus: (category === 'flyer' || attachedImages.length > 0) ? 'pending' : undefined,
+            isPostable: isPostableContent,
+            postingStatus: isPostableContent ? 'pending' : undefined,
             deliveryStatus: 'delivered',
             recipientName: c.senderName,
             recipientUserId: c.senderId
@@ -873,7 +1000,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           return {
             ...c,
-            lastMessage: `[${category === 'flyer' ? 'Flyer' : 'Personalized'}] ${campaignTitle}`,
+            lastMessage: `[${categoryLabel}] ${campaignTitle}`,
             lastMessageTime: timeStr,
             messages: [...c.messages, adminMsg]
           };
@@ -898,8 +1025,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               images: attachedImages,
               date: 'Today',
               timestamp: timeStr,
-              isPostable: category === 'flyer' || attachedImages.length > 0,
-              postingStatus: (category === 'flyer' || attachedImages.length > 0) ? 'pending' : undefined,
+              isPostable: isPostableContent,
+              postingStatus: isPostableContent ? 'pending' : undefined,
               isRead: false,
               recipientName: 'Raphael Rivera Berríos',
               recipientUserId: 'user-marketer'
@@ -907,7 +1034,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             return {
               ...mc,
-              lastMessage: `[${category === 'flyer' ? 'Flyer' : 'Personalized'}] ${campaignTitle}`,
+              lastMessage: `[${categoryLabel}] ${campaignTitle}`,
               lastMessageTime: timeStr,
               unreadCount: mc.unreadCount + 1,
               messages: [...mc.messages, marketerMsg]
@@ -924,8 +1051,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `notif-${Date.now()}`,
           userId: 'user-marketer',
           type: category === 'flyer' ? 'content_required' : 'message',
-          title: `New ${category === 'flyer' ? 'Flyer Campaign' : 'Personalized Content'}: ${campaignTitle}`,
-          description: text.trim() || `Admin delivered ${category === 'flyer' ? 'a new flyer deliverable' : 'personalized instructions'}.`,
+          title: `New ${categoryLabel}: ${campaignTitle}`,
+          description:
+            text.trim() ||
+            (category === 'flyer'
+              ? 'Admin delivered a new flyer deliverable.'
+              : category === 'personalized'
+                ? 'Admin delivered personalized instructions.'
+                : 'Admin sent a normal message.'),
           timestamp: timeStr,
           read: false,
           conversationId: 'conv-marketer-assigned'
@@ -1073,32 +1206,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const t = useMemo(() => getTranslation(language), [language]);
 
-  const approveMarketer = useCallback((userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? { ...u, approvalStatus: 'approved' as const, reviewedAt: new Date().toISOString() }
-          : u
-      )
-    );
-    showToast('Marketer account approved', 'success');
-  }, [showToast]);
+  const approveMarketer = useCallback(
+    (userId: string) => {
+      const nowIso = new Date().toISOString();
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  const rejectMarketer = useCallback((userId: string, reason?: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? {
-              ...u,
-              approvalStatus: 'rejected' as const,
-              rejectionReason: reason || 'Application declined by operations.',
-              reviewedAt: new Date().toISOString()
-            }
-          : u
-      )
-    );
-    showToast('Marketer account rejected', 'info');
-  }, [showToast]);
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                approvalStatus: 'approved' as const,
+                reviewedAt: nowIso,
+                reviewedBy: currentUserId || 'user-admin',
+                rejectionReason: undefined
+              }
+            : u
+        )
+      );
+
+      setNotificationsMap((prev) => ({
+        ...prev,
+        [userId]: [
+          {
+            id: `notif-approved-${Date.now()}`,
+            userId,
+            type: 'approval_update',
+            title: 'Account Approved',
+            description:
+              'Your marketer account has been approved. You can now access Conversations and start working.',
+            timestamp: timeStr,
+            read: false
+          },
+          ...(prev[userId] || [])
+        ]
+      }));
+
+      showToast('Marketer account approved — they can now log in and work.', 'success');
+    },
+    [currentUserId, showToast]
+  );
+
+  const rejectMarketer = useCallback(
+    (userId: string, reason?: string) => {
+      const nowIso = new Date().toISOString();
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const rejectionReason = reason || 'Application declined by operations.';
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                approvalStatus: 'rejected' as const,
+                rejectionReason,
+                reviewedAt: nowIso,
+                reviewedBy: currentUserId || 'user-admin'
+              }
+            : u
+        )
+      );
+
+      setNotificationsMap((prev) => ({
+        ...prev,
+        [userId]: [
+          {
+            id: `notif-rejected-${Date.now()}`,
+            userId,
+            type: 'approval_update',
+            title: 'Registration Not Approved',
+            description: rejectionReason,
+            timestamp: timeStr,
+            read: false
+          },
+          ...(prev[userId] || [])
+        ]
+      }));
+
+      showToast('Marketer account rejected', 'info');
+    },
+    [currentUserId, showToast]
+  );
 
   const completeTour = useCallback(() => {
     if (!currentUserId) return;
@@ -1120,7 +1308,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, message: 'Invalid email or password.' };
       }
 
-      if (user.approvalStatus === 'rejected') {
+      // Marketers must be approved before any app activity
+      if (user.role === 'Marketer' && user.approvalStatus === 'pending') {
+        return {
+          success: false,
+          message: 'Your account is pending admin approval.',
+          approvalStatus: 'pending',
+          user
+        };
+      }
+
+      if (user.role === 'Marketer' && user.approvalStatus === 'rejected') {
         return {
           success: false,
           message: 'Your marketer account application has been rejected.',
@@ -1166,12 +1364,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...newUserData,
         id: newId,
         role: 'Marketer',
-        company: 'BrandPulse Agency'
+        company: 'BrandPulse Agency',
+        approvalStatus: 'pending',
+        hasCompletedTour: false,
+        registeredAt: newUserData.registeredAt || new Date().toISOString()
       };
 
       setUsers((prev) => [...prev, newUser]);
       setRegisteredEmail(newUserData.email);
-      setSignupSuccessMessage('Account created successfully. Please login to continue.');
+      setSignupSuccessMessage(
+        'Account created successfully. Your registration is pending admin approval — you can log in after approval.'
+      );
 
       // Seed fresh inbox for new marketer so their dashboard is ready upon login
       setConversationsMap((prev) => ({
@@ -1303,6 +1506,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendBulkMessage,
         markMessagesAsRead,
         pendingActionsCount,
+        pendingMarketerRequestsCount,
         notPostedModal,
         openNotPostedModal,
         closeNotPostedModal,

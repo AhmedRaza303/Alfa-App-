@@ -10,7 +10,8 @@ import {
   MessageSquare,
   Sparkles,
   Layers,
-  SendHorizontal
+  SendHorizontal,
+  BarChart3
 } from 'lucide-react';
 
 export const ConversationListView: React.FC = () => {
@@ -99,15 +100,26 @@ export const ConversationListView: React.FC = () => {
           </span>
           <div className="flex items-center gap-2">
             {currentUser?.role === 'Admin' && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('bulk_sender')}
-                className="inline-flex items-center gap-1.5 text-blue-700 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors cursor-pointer text-[11px]"
-                title="Broadcast flyer or deliver personalized content to multiple marketers"
-              >
-                <SendHorizontal className="w-3.5 h-3.5 text-blue-600" />
-                <span>Bulk Send Content</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('analytics')}
+                  className="inline-flex items-center gap-1.5 text-slate-700 hover:text-blue-800 font-semibold bg-slate-50 hover:bg-blue-50 px-2.5 py-1 rounded-lg border border-slate-200 hover:border-blue-200 transition-colors cursor-pointer text-[11px]"
+                  title="Open analytics dashboard"
+                >
+                  <BarChart3 className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Analytics</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('bulk_sender')}
+                  className="inline-flex items-center gap-1.5 text-blue-700 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors cursor-pointer text-[11px]"
+                  title="Broadcast flyer or deliver personalized content to multiple marketers"
+                >
+                  <SendHorizontal className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Bulk</span>
+                </button>
+              </>
             )}
             {totalUnread > 0 && (
               <span className="inline-flex items-center gap-1 text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">

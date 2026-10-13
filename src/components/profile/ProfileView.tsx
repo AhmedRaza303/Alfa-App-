@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { EditProfileModal } from './EditProfileModal';
+import { WelcomeTourModal } from '../onboarding/WelcomeTourModal';
+import { getFlyerCategoryLabel } from '../../utils/flyerCategories';
 import {
   User,
   Mail,
@@ -11,18 +13,46 @@ import {
   Instagram,
   Eye,
   EyeOff,
-  ShieldCheck
+  ShieldCheck,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  TrendingUp,
+  HelpCircle,
+  Sparkles,
+  Tags
 } from 'lucide-react';
 
 export const ProfileView: React.FC = () => {
-  const { currentUser, logout, showToast } = useApp();
+  const { currentUser, logout, showToast, setActiveTab, language, t } = useApp();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [replayTourOpen, setReplayTourOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [pwdError, setPwdError] = useState<string | null>(null);
 
   if (!currentUser) return null;
+
+  const approvalStatus = currentUser.approvalStatus || 'approved';
+  const ApprovalIcon =
+    approvalStatus === 'pending'
+      ? Clock
+      : approvalStatus === 'rejected'
+        ? XCircle
+        : CheckCircle2;
+  const approvalLabel =
+    approvalStatus === 'pending'
+      ? 'Pending'
+      : approvalStatus === 'rejected'
+        ? 'Rejected'
+        : 'Approved';
+  const approvalClassName =
+    approvalStatus === 'pending'
+      ? 'bg-amber-100 text-amber-800 border-amber-200'
+      : approvalStatus === 'rejected'
+        ? 'bg-rose-100 text-rose-800 border-rose-200'
+        : 'bg-emerald-100 text-emerald-800 border-emerald-200';
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,29 +82,15 @@ export const ProfileView: React.FC = () => {
             <span className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full" />
           </div>
 
-          <div className="flex items-center gap-2 mt-1">
-            <h2 className="text-lg font-bold text-slate-900">
-              {currentUser.name}
-            </h2>
-            <span
-              className={`text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 rounded-full border ${
-                currentUser.role === 'Admin'
-                  ? 'bg-purple-50 text-purple-700 border-purple-200'
-                  : 'bg-blue-50 text-blue-700 border-blue-200'
-              }`}
-            >
-              {currentUser.role}
-            </span>
-          </div>
+          <h2 className="text-lg font-bold text-slate-900 mt-1">
+            {currentUser.name}
+          </h2>
 
           {currentUser.instagram && (
-            <p className="text-xs font-semibold text-blue-600 mb-1">
+            <p className="text-xs font-semibold text-blue-600 mt-0.5">
               {currentUser.instagram}
             </p>
           )}
-          <p className="text-xs text-slate-500 max-w-sm">
-            {currentUser.role} Account · {currentUser.company || 'MarketPulse Workspace'}
-          </p>
 
           <div className="mt-4 flex items-center gap-2">
             <button
@@ -98,6 +114,81 @@ export const ProfileView: React.FC = () => {
       </div>
 
       <div className="p-4 sm:p-6 max-w-md mx-auto w-full space-y-4">
+        <div className="space-y-2">
+          {currentUser.role === 'Marketer' && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('performance')}
+              className="w-full bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex items-center gap-3 text-left hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-slate-900">Performance & History</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Post rate, streak, and creative history
+                </p>
+              </div>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('help')}
+            className="w-full bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex items-center gap-3 text-left hover:bg-slate-50 transition-colors cursor-pointer"
+          >
+            <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0">
+              <HelpCircle className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-slate-900">Help & FAQ</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Guides, answers, and shortcuts
+              </p>
+            </div>
+          </button>
+
+          {currentUser.role === 'Marketer' && (
+            <button
+              type="button"
+              onClick={() => setReplayTourOpen(true)}
+              className="w-full bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex items-center gap-3 text-left hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-slate-900">{t.replayTour}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Walk through the app again
+                </p>
+              </div>
+            </button>
+          )}
+        </div>
+
+        {currentUser.role === 'Marketer' &&
+          currentUser.preferredFlyerCategories &&
+          currentUser.preferredFlyerCategories.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center gap-1.5">
+                <Tags className="w-3.5 h-3.5" />
+                Preferred categories
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {currentUser.preferredFlyerCategories.map((c) => (
+                  <span
+                    key={c}
+                    className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-md text-[10px] font-bold"
+                  >
+                    {getFlyerCategoryLabel(c, language)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
         {/* Account Information */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
@@ -119,6 +210,19 @@ export const ProfileView: React.FC = () => {
                 {currentUser.role}
               </span>
             </div>
+
+            {currentUser.role === 'Marketer' && (
+              <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                <span className="text-slate-500 flex items-center gap-2">
+                  <ApprovalIcon className="w-3.5 h-3.5 text-slate-400" /> Approval Status
+                </span>
+                <span
+                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border uppercase ${approvalClassName}`}
+                >
+                  {approvalLabel}
+                </span>
+              </div>
+            )}
 
             <div className="flex items-center justify-between py-1 border-b border-slate-100">
               <span className="text-slate-500 flex items-center gap-2">
@@ -171,6 +275,12 @@ export const ProfileView: React.FC = () => {
       <EditProfileModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
+      />
+
+      <WelcomeTourModal
+        isOpen={replayTourOpen}
+        isReplay
+        onClose={() => setReplayTourOpen(false)}
       />
 
       {/* Change Password Modal */}

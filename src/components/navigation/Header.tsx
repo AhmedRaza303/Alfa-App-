@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, BarChart3, HelpCircle } from 'lucide-react';
 
 interface HeaderProps {
   title?: string;
@@ -8,18 +8,27 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
-  const { currentUser, activeTab } = useApp();
+  const { currentUser, activeTab, setActiveTab } = useApp();
+  const isAdmin = currentUser?.role === 'Admin';
 
   const getDefaultTitle = () => {
     switch (activeTab) {
       case 'conversations':
-        return currentUser?.role === 'Admin' ? 'All Marketers / Conversations' : 'Conversations';
+        return isAdmin ? 'All Marketers / Conversations' : 'Conversations';
+      case 'marketer_requests':
+        return 'Marketer Requests';
       case 'bulk_sender':
         return 'Bulk Content Sender';
+      case 'analytics':
+        return 'Analytics';
+      case 'performance':
+        return 'Performance';
+      case 'help':
+        return 'Help & FAQ';
       case 'notifications':
         return 'Notifications';
       case 'profile':
-        return currentUser?.role === 'Admin' ? 'Admin Profile' : 'Marketer Profile';
+        return isAdmin ? 'Admin Profile' : 'Marketer Profile';
       default:
         return 'MarketPulse';
     }
@@ -28,15 +37,23 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
   const getDefaultSubtitle = () => {
     switch (activeTab) {
       case 'conversations':
-        return currentUser?.role === 'Admin'
+        return isAdmin
           ? 'Team deliverable queues & posting management'
           : 'Content delivery & posting queue';
+      case 'marketer_requests':
+        return 'Review pending signups — approve or reject marketers';
       case 'bulk_sender':
         return 'Broadcast flyers & distribute personalized deliverables';
+      case 'analytics':
+        return 'Posting performance, content mix & marketer leaderboard';
+      case 'performance':
+        return 'Your posting stats, streak & creative history';
+      case 'help':
+        return 'Guides, FAQs, and tour replay';
       case 'notifications':
         return 'Activity feed & deliverable alerts';
       case 'profile':
-        return currentUser?.role === 'Admin'
+        return isAdmin
           ? 'Administrator credentials & security'
           : 'Account credentials & settings';
       default:
@@ -67,25 +84,46 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
           )}
         </div>
 
-        {/* Current Active Marketer Avatar preview (NO SWITCH USER) */}
-        {currentUser && (
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="text-right hidden sm:block">
-              <span className="text-xs font-bold text-slate-900 block leading-tight">
-                {currentUser.name}
-              </span>
-              <span className="text-[10px] text-slate-500 block">
-                {currentUser.role || 'Marketer'}
-              </span>
-            </div>
-            <img
-              src={currentUser.avatar}
-              alt={currentUser.name}
-              className="w-8 h-8 rounded-full object-cover border border-slate-300 shadow-2xs"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {isAdmin && activeTab !== 'analytics' && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('analytics')}
+              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-200 flex items-center justify-center transition-colors cursor-pointer"
+              title="Analytics"
+            >
+              <BarChart3 className="w-4 h-4" />
+            </button>
+          )}
+          {activeTab !== 'help' && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('help')}
+              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-200 flex items-center justify-center transition-colors cursor-pointer"
+              title="Help & FAQ"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          )}
+          {currentUser && (
+            <>
+              <div className="text-right hidden sm:block">
+                <span className="text-xs font-bold text-slate-900 block leading-tight">
+                  {currentUser.name}
+                </span>
+                <span className="text-[10px] text-slate-500 block">
+                  {currentUser.role || 'Marketer'}
+                </span>
+              </div>
+              <img
+                src={currentUser.avatar}
+                alt={currentUser.name}
+                className="w-8 h-8 rounded-full object-cover border border-slate-300 shadow-2xs"
+                referrerPolicy="no-referrer"
+              />
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

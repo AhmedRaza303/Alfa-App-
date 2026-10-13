@@ -6,7 +6,7 @@ import { AppShell } from './components/layout/AppShell';
 import { Toast } from './components/common/Toast';
 
 const MainContent: React.FC = () => {
-  const { isAuthenticated, authView } = useApp();
+  const { isAuthenticated, authView, currentUser } = useApp();
 
   // If user clicked "Create New Account", immediately show SignUpView
   if (authView === 'signup') {
@@ -18,8 +18,14 @@ const MainContent: React.FC = () => {
     );
   }
 
-  // If user is not authenticated or explicitly in login view, show LoginView
-  if (!isAuthenticated || authView === 'login') {
+  // Pending / rejected marketers never enter the workspace
+  const canUseApp =
+    isAuthenticated &&
+    authView === 'app' &&
+    currentUser &&
+    (currentUser.role === 'Admin' || currentUser.approvalStatus === 'approved');
+
+  if (!canUseApp) {
     return (
       <>
         <Toast />
@@ -28,7 +34,6 @@ const MainContent: React.FC = () => {
     );
   }
 
-  // Logged-in user in app
   return <AppShell />;
 };
 

@@ -43,6 +43,7 @@ export interface TranslationDict {
   instagramHandle: string;
   preferredFlyerLanguage: string;
   preferredFlyerCategory: string;
+  selectCategory: string;
   workInjury: string;
   carAccident: string;
   email: string;
@@ -62,6 +63,11 @@ export interface TranslationDict {
   dontHaveAccount: string;
   forgotPassword: string;
   passwordRequirements: string;
+  cityNameHint: string;
+  postalCodeHint: string;
+  phoneDigitsHint: (current: number, max: number) => string;
+  step1Title: string;
+  step2Title: string;
 
   // Status screens for Marketer
   registrationSubmittedTitle: string;
@@ -75,7 +81,7 @@ export interface TranslationDict {
   // Categories
   flyer: string;
   personalized: string;
-  none: string;
+  normal: string;
   allCategories: string;
   contentType: string;
 
@@ -83,6 +89,9 @@ export interface TranslationDict {
   conversations: string;
   bulkSender: string;
   marketerRequests: string;
+  analytics: string;
+  performance: string;
+  help: string;
   notifications: string;
   profile: string;
 
@@ -187,6 +196,7 @@ const en: TranslationDict = {
   instagramHandle: 'Instagram Handle',
   preferredFlyerLanguage: 'Preferred Flyer Language',
   preferredFlyerCategory: 'Preferred Flyer Category',
+  selectCategory: 'Select category',
   workInjury: 'Work Injury',
   carAccident: 'Car Accident',
   email: 'Email',
@@ -206,6 +216,11 @@ const en: TranslationDict = {
   dontHaveAccount: 'Don\'t have an account? Sign Up',
   forgotPassword: 'Forgot Password?',
   passwordRequirements: 'Minimum 8 characters with at least one letter and number.',
+  cityNameHint: 'Letters only — city name, no numbers.',
+  postalCodeHint: 'Exactly 6 digits.',
+  phoneDigitsHint: (current, max) => `${current} / ${max} digits`,
+  step1Title: 'Personal profile',
+  step2Title: 'Account & location',
 
   registrationSubmittedTitle: 'Registration Submitted',
   registrationSubmittedDesc: 'Your account has been created and is awaiting admin approval. You\'ll be able to access your workspace once your account is approved.',
@@ -217,13 +232,16 @@ const en: TranslationDict = {
 
   flyer: 'Flyer',
   personalized: 'Personalized',
-  none: 'None (Notice)',
+  normal: 'Normal',
   allCategories: 'All Categories',
   contentType: 'Content Type',
 
   conversations: 'Conversations',
   bulkSender: 'Bulk Sender',
   marketerRequests: 'Requests',
+  analytics: 'Analytics',
+  performance: 'Performance',
+  help: 'Help',
   notifications: 'Notifications',
   profile: 'Profile',
 
@@ -325,6 +343,7 @@ const es: TranslationDict = {
   instagramHandle: 'Usuario de Instagram',
   preferredFlyerLanguage: 'Idioma Preferido de Folletos',
   preferredFlyerCategory: 'Categoría Preferida de Folletos',
+  selectCategory: 'Seleccionar categoría',
   workInjury: 'Accidente Laboral',
   carAccident: 'Accidente de Auto',
   email: 'Correo Electrónico',
@@ -344,6 +363,11 @@ const es: TranslationDict = {
   dontHaveAccount: '¿No tienes una cuenta? Regístrate',
   forgotPassword: '¿Olvidaste tu contraseña?',
   passwordRequirements: 'Mínimo 8 caracteres con al menos una letra y un número.',
+  cityNameHint: 'Solo letras — nombre de ciudad, sin números.',
+  postalCodeHint: 'Exactamente 6 dígitos.',
+  phoneDigitsHint: (current, max) => `${current} / ${max} dígitos`,
+  step1Title: 'Perfil personal',
+  step2Title: 'Cuenta y ubicación',
 
   registrationSubmittedTitle: 'Registro Enviado',
   registrationSubmittedDesc: 'Tu cuenta ha sido creada y está esperando aprobación de un administrador. Podrás acceder a tu espacio de trabajo una vez aprobada.',
@@ -355,13 +379,16 @@ const es: TranslationDict = {
 
   flyer: 'Folleto',
   personalized: 'Personalizado',
-  none: 'Ninguno (Aviso)',
+  normal: 'Normal',
   allCategories: 'Todas las Categorías',
   contentType: 'Tipo de Contenido',
 
   conversations: 'Conversaciones',
   bulkSender: 'Envío Masivo',
   marketerRequests: 'Solicitudes',
+  analytics: 'Analítica',
+  performance: 'Rendimiento',
+  help: 'Ayuda',
   notifications: 'Notificaciones',
   profile: 'Perfil',
 

@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, Save, AlertCircle, Camera, Trash2, Upload } from 'lucide-react';
+import { FlyerCategory } from '../../types';
+import { FLYER_CATEGORIES, getFlyerCategoryLabel } from '../../utils/flyerCategories';
+import { X, Save, AlertCircle, Camera, Trash2, Upload, Check } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -8,7 +10,7 @@ interface Props {
 }
 
 export const EditProfileModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const { currentUser, updateProfile } = useApp();
+  const { currentUser, updateProfile, language } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(currentUser?.name || '');
@@ -16,6 +18,9 @@ export const EditProfileModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [phone, setPhone] = useState(currentUser?.phone || '');
   const [instagram, setInstagram] = useState(currentUser?.instagram || '');
   const [avatar, setAvatar] = useState(currentUser?.avatar || '');
+  const [preferredFlyerCategories, setPreferredFlyerCategories] = useState<FlyerCategory[]>(
+    currentUser?.preferredFlyerCategories || []
+  );
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen || !currentUser) return null;
@@ -65,12 +70,20 @@ export const EditProfileModal: React.FC<Props> = ({ isOpen, onClose }) => {
         : `@${instagram.trim()}`
       : undefined;
 
+    if (currentUser.role === 'Marketer' && preferredFlyerCategories.length === 0) {
+      setError('Select at least one preferred flyer category.');
+      return;
+    }
+
     updateProfile({
       name: name.trim(),
       email: email.trim().toLowerCase(),
       phone: phone.trim(),
       instagram: cleanInstagram,
-      avatar: avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80'
+      avatar: avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+      ...(currentUser.role === 'Marketer'
+        ? { preferredFlyerCategories }
+        : {})
     });
 
     onClose();
@@ -207,6 +220,41 @@ export const EditProfileModal: React.FC<Props> = ({ isOpen, onClose }) => {
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
+          {currentUser.role === 'Marketer' && (
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
+                Preferred Flyer Categories
+              </label>
+              <p className="text-[11px] text-slate-500 mb-2">
+                Choose niches you want content for.
+              </p>
+              <div className="flex flex-wrap gap-1.5 p-2.5 rounded-xl border border-slate-200 bg-slate-50">
+                {FLYER_CATEGORIES.map((cat) => {
+                  const selected = preferredFlyerCategories.includes(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() =>
+                        setPreferredFlyerCategories((prev) =>
+                          selected ? prev.filter((c) => c !== cat.id) : [...prev, cat.id]
+                        )
+                      }
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                        selected
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-blue-300'
+                      }`}
+                    >
+                      {selected && <Check className="w-3 h-3" />}
+                      {getFlyerCategoryLabel(cat.id, language)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">

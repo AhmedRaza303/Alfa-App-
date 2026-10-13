@@ -20,7 +20,7 @@ import {
 import { Message } from '../../types';
 
 type PostingFilter = 'all' | 'pending' | 'posted' | 'not_posted';
-type CategoryFilter = 'all' | 'flyer' | 'personalized';
+type CategoryFilter = 'all' | 'flyer' | 'personalized' | 'normal';
 
 const EMOJI_LIST = [
   '🚀', '📢', '🎯', '🔥', '✨', '💼', '📈', '💡', '📅', '🏷️',
@@ -53,7 +53,7 @@ export const ConversationDetailView: React.FC = () => {
   const initialAnchorDoneRef = useRef(false);
 
   // Category and attachment state for Admin
-  const [contentType, setContentType] = useState<'flyer' | 'personalized'>('flyer');
+  const [contentType, setContentType] = useState<'flyer' | 'personalized' | 'normal'>('flyer');
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
@@ -256,6 +256,12 @@ export const ConversationDetailView: React.FC = () => {
           if (m.contentCategory !== 'flyer') return false;
         } else if (activeCategoryFilter === 'personalized') {
           if (m.contentCategory !== 'personalized') return false;
+        } else if (activeCategoryFilter === 'normal') {
+          // Normal = explicit normal category, or plain text chat (no flyer/personalized)
+          const isNormal =
+            m.contentCategory === 'normal' ||
+            (!m.contentCategory && m.type === 'text' && !m.isPostable);
+          if (!isNormal) return false;
         }
       }
 
@@ -469,110 +475,101 @@ export const ConversationDetailView: React.FC = () => {
         </header>
       )}
 
-      {/* ========================================================================= */}
-      {/* 2. POSTING SUMMARY BADGES (Single compact horizontal row)                 */}
-      {/* ========================================================================= */}
-      {imagePostingCounts && (
-        <div className="flex items-center justify-between gap-1.5 px-3 pt-2.5 pb-1 w-full box-border shrink-0 select-none">
-          {/* Badge 1: 4 Posts (Neutral/Light Blue) */}
-          <div className="flex-1 min-w-0 bg-blue-50/90 text-blue-700 border border-blue-200/80 rounded-full px-2 py-1 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 sm:gap-1.5 shadow-2xs">
-            <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600 shrink-0" />
-            <span className="truncate">{imagePostingCounts.total} Posts</span>
-          </div>
-
-          {/* Badge 2: 3 Posted (Light Green) */}
-          <div className="flex-1 min-w-0 bg-emerald-50/90 text-emerald-700 border border-emerald-200/80 rounded-full px-2 py-1 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 sm:gap-1.5 shadow-2xs">
-            <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 shrink-0" />
-            <span className="truncate">{imagePostingCounts.posted} Posted</span>
-          </div>
-
-          {/* Badge 3: 1 Pending (Light Amber) */}
-          <div className="flex-1 min-w-0 bg-amber-50/90 text-amber-700 border border-amber-200/80 rounded-full px-2 py-1 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 sm:gap-1.5 shadow-2xs">
-            <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 shrink-0" />
-            <span className="truncate">{imagePostingCounts.pending} Pending</span>
-          </div>
-
-          {/* Badge 4: 1 Not Posted (Light Red) */}
-          <div className="flex-1 min-w-0 bg-rose-50/90 text-rose-700 border border-rose-200/80 rounded-full px-2 py-1 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 sm:gap-1.5 shadow-2xs">
-            <XCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-600 shrink-0" />
-            <span className="truncate">{imagePostingCounts.notPosted} Not Posted</span>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 3. SEPARATE FILTER TOOLBAR (Rounded white toolbar with border & shadow)   */}
-      {/* ========================================================================= */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs mx-3 my-1.5 p-2 sm:px-3 sm:py-2 shrink-0 z-20 space-y-1.5">
-        <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
-          {/* Status Filter Dropdown */}
-          <div className="relative inline-flex items-center flex-1 min-w-[125px]">
-            <select
-              id="message-status-filter"
-              value={activeFilter}
-              onChange={(e) => setActiveFilter(e.target.value as PostingFilter)}
-              className="w-full appearance-none bg-slate-100 hover:bg-slate-200/70 text-slate-800 text-[11px] sm:text-xs font-semibold pl-2.5 pr-6 py-1.5 rounded-xl border border-slate-200/80 cursor-pointer outline-none transition-colors truncate"
-            >
-              <option value="all">
-                All Messages ({activeConversation.messages.length})
-              </option>
-              <option value="pending">
-                Pending ({imagePostingCounts?.pending ?? 0})
-              </option>
-              <option value="posted">
-                Posted ({imagePostingCounts?.posted ?? 0})
-              </option>
-              <option value="not_posted">
-                Not Posted ({imagePostingCounts?.notPosted ?? 0})
-              </option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-blue-600 pointer-events-none absolute right-2 shrink-0" />
-          </div>
-
-          {/* Category Filter Dropdown */}
-          <div className="relative inline-flex items-center flex-1 min-w-[125px]">
-            <select
-              id="message-category-filter"
-              value={activeCategoryFilter}
-              onChange={(e) => setActiveCategoryFilter(e.target.value as CategoryFilter)}
-              className="w-full appearance-none bg-slate-100 hover:bg-slate-200/70 text-slate-800 text-[11px] sm:text-xs font-semibold pl-2.5 pr-6 py-1.5 rounded-xl border border-slate-200/80 cursor-pointer outline-none transition-colors truncate"
-            >
-              <option value="all">All Categories</option>
-              <option value="flyer">Flyer</option>
-              <option value="personalized">Personalized</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-purple-600 pointer-events-none absolute right-2 shrink-0" />
-          </div>
-
-          {/* Clear Action */}
-          <button
-            type="button"
-            onClick={handleClearFilters}
-            className={`flex items-center gap-1 text-[11px] sm:text-xs font-bold px-2 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
-              activeFilter !== 'all' || activeCategoryFilter !== 'all'
-                ? 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
-            title="Reset both filters"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Clear</span>
-          </button>
-        </div>
-
-        {/* Showing X of Y messages indicator */}
-        <div className="flex items-center justify-between text-[10.5px] text-slate-500 font-medium px-1 pt-0.5 border-t border-slate-100">
-          <span>
-            Showing {filteredMessages.length} of {activeConversation.messages.length} messages
-          </span>
-          {(activeFilter !== 'all' || activeCategoryFilter !== 'all') && (
-            <span className="text-blue-600 font-semibold truncate max-w-[170px] sm:max-w-none">
-              Filtered: {[
-                activeFilter !== 'all' ? `Status: ${activeFilter}` : null,
-                activeCategoryFilter !== 'all' ? `Category: ${activeCategoryFilter}` : null
-              ].filter(Boolean).join(' • ')}
-            </span>
+      {/* Status chips (tap to filter) + category — one compact bar */}
+      <div className="mx-3 mt-2 mb-1.5 shrink-0 z-20">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-2 space-y-2">
+          {imagePostingCounts && (
+            <div className="grid grid-cols-4 gap-1">
+              {(
+                [
+                  {
+                    key: 'all' as PostingFilter,
+                    label: 'All',
+                    count: imagePostingCounts.total,
+                    Icon: FileText,
+                    on: 'bg-blue-600 text-white border-blue-600',
+                    off: 'bg-blue-50 text-blue-700 border-blue-100'
+                  },
+                  {
+                    key: 'posted' as PostingFilter,
+                    label: 'Posted',
+                    count: imagePostingCounts.posted,
+                    Icon: CheckCircle2,
+                    on: 'bg-emerald-600 text-white border-emerald-600',
+                    off: 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                  },
+                  {
+                    key: 'pending' as PostingFilter,
+                    label: 'Pending',
+                    count: imagePostingCounts.pending,
+                    Icon: Clock,
+                    on: 'bg-amber-500 text-white border-amber-500',
+                    off: 'bg-amber-50 text-amber-800 border-amber-100'
+                  },
+                  {
+                    key: 'not_posted' as PostingFilter,
+                    label: 'Held',
+                    count: imagePostingCounts.notPosted,
+                    Icon: XCircle,
+                    on: 'bg-rose-600 text-white border-rose-600',
+                    off: 'bg-rose-50 text-rose-700 border-rose-100'
+                  }
+                ] as const
+              ).map((chip) => {
+                const active = activeFilter === chip.key;
+                const Icon = chip.Icon;
+                return (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={() => setActiveFilter(chip.key)}
+                    className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-1.5 transition-colors cursor-pointer ${
+                      active ? chip.on : chip.off
+                    }`}
+                    title={chip.key === 'not_posted' ? 'Not posted' : chip.label}
+                  >
+                    <span className="flex items-center gap-0.5">
+                      <Icon className="w-3 h-3 shrink-0" />
+                      <span className="text-xs font-extrabold leading-none">{chip.count}</span>
+                    </span>
+                    <span className="text-[9px] font-bold leading-none opacity-90">{chip.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
+
+          <div className="flex items-center gap-1.5">
+            <div className="relative flex-1 min-w-0">
+              <select
+                id="message-category-filter"
+                value={activeCategoryFilter}
+                onChange={(e) => setActiveCategoryFilter(e.target.value as CategoryFilter)}
+                className="w-full appearance-none bg-slate-50 hover:bg-slate-100 text-slate-800 text-[11px] font-semibold pl-2.5 pr-7 py-1.5 rounded-xl border border-slate-200 cursor-pointer outline-none"
+              >
+                <option value="all">All types</option>
+                <option value="flyer">Flyer</option>
+                <option value="personalized">Personalized</option>
+                <option value="normal">Normal</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
+            </div>
+
+            <span className="text-[10px] font-semibold text-slate-400 shrink-0 tabular-nums">
+              {filteredMessages.length}/{activeConversation.messages.length}
+            </span>
+
+            {(activeFilter !== 'all' || activeCategoryFilter !== 'all') && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="w-8 h-8 rounded-xl text-blue-600 hover:bg-blue-50 border border-blue-100 flex items-center justify-center cursor-pointer shrink-0"
+                title="Clear filters"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -646,110 +643,95 @@ export const ConversationDetailView: React.FC = () => {
       <footer className="sticky bottom-0 bg-white border-t border-slate-200/80 px-2.5 sm:px-3 py-2 z-20 shrink-0">
         <div className="max-w-3xl mx-auto">
           {currentUser?.role === 'Admin' ? (
-            /* Admin Composer Container: Compact, rounded container */
-            <div className="bg-[#f8fafc] border border-slate-200/90 rounded-2xl p-2 sm:p-2.5 shadow-2xs space-y-1.5">
-              {/* TOP ROW: Content Type label + Dropdown */}
-              <div className="flex items-center justify-between gap-2 px-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Content Type:
-                  </span>
-                  <div className="relative inline-flex items-center">
-                    <select
-                      id="admin-composer-content-type"
-                      value={contentType}
-                      onChange={(e) => setContentType(e.target.value as 'flyer' | 'personalized')}
-                      className="appearance-none text-xs font-bold bg-white text-slate-800 rounded-lg pl-2 pr-6 py-1 border border-slate-200 shadow-3xs cursor-pointer outline-none hover:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-colors"
-                    >
-                      <option value="flyer">Flyer</option>
-                      <option value="personalized">Personalized</option>
-                    </select>
-                    <ChevronDown className="w-3 h-3 text-slate-500 pointer-events-none absolute right-1.5" />
-                  </div>
-                </div>
-
-                {attachedImages.length > 0 && (
-                  <span className="text-[10.5px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                    {attachedImages.length}/3 Attached
-                  </span>
-                )}
-              </div>
-
-              {/* Attachment Preview Strip (if images attached) */}
+            <div className="space-y-1.5">
+              {/* Attachment preview (only when needed) */}
               {attachedImages.length > 0 && (
-                <div className="flex items-center gap-2 px-1 py-0.5 overflow-x-auto">
+                <div className="flex items-center gap-2 px-0.5 overflow-x-auto">
                   {attachedImages.map((img, idx) => (
                     <div
                       key={idx}
-                      className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0 shadow-2xs group"
+                      className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0"
                     >
                       <img
                         src={img}
-                        alt={`Attachment preview ${idx + 1}`}
+                        alt={`Attachment ${idx + 1}`}
                         className="w-full h-full object-cover"
                       />
                       <button
                         type="button"
                         onClick={() => removeAttachment(idx)}
-                        className="absolute top-0.5 right-0.5 w-4 h-4 bg-slate-900/80 hover:bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] cursor-pointer transition-colors"
-                        title="Remove attachment"
+                        className="absolute top-0.5 right-0.5 w-4 h-4 bg-slate-900/80 hover:bg-rose-600 text-white rounded-full flex items-center justify-center cursor-pointer"
+                        title="Remove"
                       >
                         <X className="w-2.5 h-2.5" />
                       </button>
                     </div>
                   ))}
-                  {attachError && (
-                    <span className="text-xs text-rose-600 font-medium truncate ml-1">
-                      {attachError}
-                    </span>
-                  )}
+                  <span className="text-[10px] font-semibold text-blue-700 shrink-0">
+                    {attachedImages.length}/3
+                  </span>
                 </div>
               )}
 
-              {/* Validation Error banner if no preview */}
-              {attachError && attachedImages.length === 0 && (
-                <div className="text-xs text-rose-600 font-medium px-1">
-                  {attachError}
-                </div>
+              {attachError && (
+                <p className="text-[11px] text-rose-600 font-medium px-0.5">{attachError}</p>
               )}
 
-              {/* BOTTOM ROW: Message text input, Emoji picker, Attachment button, Send button */}
-              <form onSubmit={handleSend} className="flex items-center gap-1.5 sm:gap-2">
-                {/* Message text input */}
-                <div className="flex-1 min-w-0 bg-white border border-slate-200/90 rounded-full px-3.5 py-1.5 sm:py-2 flex items-center transition-all focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 shadow-3xs">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder={
-                      contentType === 'flyer'
-                        ? 'Type flyer message...'
-                        : 'Type personalized message...'
+              {/* One-line composer: Type · Message · Emoji · Attach · Send */}
+              <form
+                onSubmit={handleSend}
+                className="flex items-center gap-1.5 bg-[#f8fafc] border border-slate-200/90 rounded-full pl-1.5 pr-1.5 py-1 shadow-2xs"
+              >
+                <div className="relative shrink-0">
+                  <select
+                    id="admin-composer-content-type"
+                    value={contentType}
+                    onChange={(e) =>
+                      setContentType(e.target.value as 'flyer' | 'personalized' | 'normal')
                     }
-                    className="w-full bg-transparent text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none"
-                  />
+                    aria-label="Content type"
+                    title="Content type"
+                    className="appearance-none max-w-[7.5rem] text-[11px] font-bold bg-white text-slate-800 rounded-full pl-2.5 pr-6 py-1.5 border border-slate-200 cursor-pointer outline-none hover:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                  >
+                    <option value="flyer">Flyer</option>
+                    <option value="personalized">Personalized</option>
+                    <option value="normal">Normal</option>
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-slate-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
                 </div>
 
-                {/* Emoji picker button */}
-                <div className="relative" ref={emojiPickerRef}>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder={
+                    contentType === 'flyer'
+                      ? 'Type flyer message...'
+                      : contentType === 'personalized'
+                        ? 'Type personalized message...'
+                        : 'Type a message...'
+                  }
+                  className="flex-1 min-w-0 bg-transparent text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none px-1 py-1.5"
+                />
+
+                <div className="relative shrink-0" ref={emojiPickerRef}>
                   <button
                     type="button"
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-slate-200/90 flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
                       showEmojiPicker
-                        ? 'bg-blue-50 text-blue-600 border-blue-300'
-                        : 'bg-white text-slate-500 hover:text-blue-600 hover:bg-slate-50'
+                        ? 'bg-blue-50 text-blue-600'
+                        : 'text-slate-500 hover:text-blue-600 hover:bg-white'
                     }`}
                     title="Insert emoji"
                     aria-label="Insert emoji"
                   >
-                    <Smile className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                    <Smile className="w-4 h-4" />
                   </button>
 
-                  {/* Emoji Picker Popover */}
                   {showEmojiPicker && (
-                    <div className="absolute right-0 bottom-full mb-2 z-50 bg-white rounded-xl shadow-xl border border-slate-200 p-2.5 w-60 sm:w-64 animate-in fade-in-50 zoom-in-95">
+                    <div className="absolute right-0 bottom-full mb-2 z-50 bg-white rounded-xl shadow-xl border border-slate-200 p-2.5 w-60 animate-in fade-in-50 zoom-in-95">
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                         Insert Emoji
                       </div>
@@ -759,7 +741,7 @@ export const ConversationDetailView: React.FC = () => {
                             key={emoji}
                             type="button"
                             onClick={() => handleInsertEmoji(emoji)}
-                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-base transition-transform active:scale-90 cursor-pointer"
+                            className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-base cursor-pointer"
                           >
                             {emoji}
                           </button>
@@ -769,17 +751,20 @@ export const ConversationDetailView: React.FC = () => {
                   )}
                 </div>
 
-                {/* Attachment button */}
                 <label
-                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-slate-200/90 bg-white flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+                  className={`relative w-8 h-8 rounded-full flex items-center justify-center cursor-pointer shrink-0 ${
                     attachedImages.length >= 3
                       ? 'opacity-40 cursor-not-allowed text-slate-400'
-                      : 'text-slate-500 hover:text-blue-600 hover:bg-slate-50'
+                      : 'text-slate-500 hover:text-blue-600 hover:bg-white'
                   }`}
-                  title={attachedImages.length >= 3 ? 'Max 3 images reached' : 'Attach image'}
-                  aria-label="Attach images"
+                  title={attachedImages.length >= 3 ? 'Max 3 images' : 'Attach image'}
                 >
-                  <ImagePlus className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                  <ImagePlus className="w-4 h-4" />
+                  {attachedImages.length > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center">
+                      {attachedImages.length}
+                    </span>
+                  )}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -791,14 +776,13 @@ export const ConversationDetailView: React.FC = () => {
                   />
                 </label>
 
-                {/* Send button */}
                 <button
                   type="submit"
                   disabled={!inputText.trim() && attachedImages.length === 0}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#0066f5] hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white flex items-center justify-center shrink-0 shadow-xs cursor-pointer transition-all active:scale-95"
+                  className="w-8 h-8 rounded-full bg-[#0066f5] hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white flex items-center justify-center shrink-0 cursor-pointer active:scale-95"
                   aria-label="Send"
                 >
-                  <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white -mr-0.5" />
+                  <Send className="w-3.5 h-3.5 text-white -mr-0.5" />
                 </button>
               </form>
             </div>

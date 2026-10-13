@@ -1,6 +1,14 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { MessageSquare, Bell, User as UserIcon, SendHorizontal } from 'lucide-react';
+import {
+  MessageSquare,
+  Bell,
+  User as UserIcon,
+  SendHorizontal,
+  UserPlus,
+  BarChart3,
+  TrendingUp
+} from 'lucide-react';
 import { ActiveTab } from '../../types';
 
 export const BottomNav: React.FC = () => {
@@ -9,32 +17,54 @@ export const BottomNav: React.FC = () => {
     setActiveTab,
     unreadNotificationCount,
     pendingActionsCount,
+    pendingMarketerRequestsCount,
     currentUser,
     activeConversationId,
     closeConversation
   } = useApp();
 
   const isAdmin = currentUser?.role === 'Admin';
+  const isMarketer = currentUser?.role === 'Marketer';
 
   const navItems: { tab: ActiveTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     {
       tab: 'conversations',
-      label: 'Conversations',
+      label: 'Chats',
       icon: <MessageSquare className="w-5 h-5" />,
       badge: pendingActionsCount
     },
     ...(isAdmin
       ? [
           {
+            tab: 'analytics' as ActiveTab,
+            label: 'Analytics',
+            icon: <BarChart3 className="w-5 h-5" />
+          },
+          {
+            tab: 'marketer_requests' as ActiveTab,
+            label: 'Requests',
+            icon: <UserPlus className="w-5 h-5" />,
+            badge: pendingMarketerRequestsCount
+          },
+          {
             tab: 'bulk_sender' as ActiveTab,
-            label: 'Bulk Sender',
+            label: 'Bulk',
             icon: <SendHorizontal className="w-5 h-5" />
+          }
+        ]
+      : []),
+    ...(isMarketer
+      ? [
+          {
+            tab: 'performance' as ActiveTab,
+            label: 'Stats',
+            icon: <TrendingUp className="w-5 h-5" />
           }
         ]
       : []),
     {
       tab: 'notifications',
-      label: 'Notifications',
+      label: 'Alerts',
       icon: <Bell className="w-5 h-5" />,
       badge: unreadNotificationCount
     },
@@ -58,8 +88,8 @@ export const BottomNav: React.FC = () => {
     <nav className="relative z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 shrink-0">
       <div
         className={`max-w-md mx-auto grid ${
-          isAdmin ? 'grid-cols-4' : 'grid-cols-3'
-        } h-14 px-2 sm:px-4`}
+          isAdmin ? 'grid-cols-6' : 'grid-cols-4'
+        } h-14 px-0.5 sm:px-1`}
       >
         {navItems.map((item) => {
           const isActive = activeTab === item.tab;
