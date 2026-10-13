@@ -1,0 +1,6 @@
+{
+  "name": "MarketPulse - Marketer Communication & Posting Management",
+  "description": "Professional mobile-first communication and posting workflow platform for corporate marketing teams.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
