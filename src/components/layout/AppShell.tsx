@@ -10,6 +10,8 @@ import { BulkContentSenderView } from '../bulk/BulkContentSenderView';
 import { MarketerRequestsView } from '../admin/MarketerRequestsView';
 import { AnalyticsDashboardView } from '../admin/AnalyticsDashboardView';
 import { PerformanceHistoryView } from '../marketer/PerformanceHistoryView';
+import { ReferralNetworkView } from '../marketer/ReferralNetworkView';
+import { LeadsView } from '../leads/LeadsView';
 import { HelpView } from '../help/HelpView';
 import { WelcomeTourModal } from '../onboarding/WelcomeTourModal';
 import { NotPostedModal } from '../modals/NotPostedModal';
@@ -55,6 +57,11 @@ export const AppShell: React.FC = () => {
       case 'performance':
         if (isMarketer) return <PerformanceHistoryView />;
         return isAdmin ? <AnalyticsDashboardView /> : <ConversationListView />;
+      case 'referrals':
+        if (isMarketer) return <ReferralNetworkView />;
+        return isAdmin ? <AnalyticsDashboardView /> : <ConversationListView />;
+      case 'leads':
+        return <LeadsView />;
       case 'help':
         return <HelpView />;
       case 'notifications':

@@ -17,7 +17,6 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  TrendingUp,
   HelpCircle,
   Sparkles,
   Tags
@@ -115,24 +114,6 @@ export const ProfileView: React.FC = () => {
 
       <div className="p-4 sm:p-6 max-w-md mx-auto w-full space-y-4">
         <div className="space-y-2">
-          {currentUser.role === 'Marketer' && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('performance')}
-              className="w-full bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex items-center gap-3 text-left hover:bg-slate-50 transition-colors cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-slate-900">Performance & History</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Post rate, streak, and creative history
-                </p>
-              </div>
-            </button>
-          )}
-
           <button
             type="button"
             onClick={() => setActiveTab('help')}

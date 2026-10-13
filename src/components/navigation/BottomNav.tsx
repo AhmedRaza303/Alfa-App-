@@ -7,6 +7,8 @@ import {
   SendHorizontal,
   UserPlus,
   BarChart3,
+  GitBranch,
+  ClipboardList,
   TrendingUp
 } from 'lucide-react';
 import { ActiveTab } from '../../types';
@@ -53,12 +55,22 @@ export const BottomNav: React.FC = () => {
           }
         ]
       : []),
+    {
+      tab: 'leads',
+      label: 'Leads',
+      icon: <ClipboardList className="w-5 h-5" />
+    },
     ...(isMarketer
       ? [
           {
             tab: 'performance' as ActiveTab,
             label: 'Stats',
             icon: <TrendingUp className="w-5 h-5" />
+          },
+          {
+            tab: 'referrals' as ActiveTab,
+            label: 'Referrals',
+            icon: <GitBranch className="w-5 h-5" />
           }
         ]
       : []),
@@ -84,13 +96,11 @@ export const BottomNav: React.FC = () => {
     }
   ];
 
+  const cols = isAdmin ? 7 : isMarketer ? 6 : 4;
+
   return (
     <nav className="relative z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 shrink-0">
-      <div
-        className={`max-w-md mx-auto grid ${
-          isAdmin ? 'grid-cols-6' : 'grid-cols-4'
-        } h-14 px-0.5 sm:px-1`}
-      >
+      <div className={`max-w-md mx-auto grid grid-cols-${cols} h-14 px-0.5 sm:px-1`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {navItems.map((item) => {
           const isActive = activeTab === item.tab;
           return (
@@ -99,7 +109,11 @@ export const BottomNav: React.FC = () => {
               type="button"
               onClick={() => {
                 if (item.tab === 'conversations') {
-                  if (currentUser?.role === 'Admin' && activeTab === 'conversations' && activeConversationId) {
+                  if (
+                    currentUser?.role === 'Admin' &&
+                    activeTab === 'conversations' &&
+                    activeConversationId
+                  ) {
                     closeConversation();
                   } else {
                     setActiveTab('conversations');
@@ -120,7 +134,11 @@ export const BottomNav: React.FC = () => {
                   </span>
                 )}
               </div>
-              <span className={`text-[10.5px] mt-1 tracking-tight truncate max-w-full px-0.5 ${isActive ? 'font-bold text-blue-600' : 'font-medium'}`}>
+              <span
+                className={`text-[10px] mt-1 tracking-tight truncate max-w-full px-0.5 ${
+                  isActive ? 'font-bold text-blue-600' : 'font-medium'
+                }`}
+              >
                 {item.label}
               </span>
               {isActive && (

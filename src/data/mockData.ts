@@ -1,4 +1,4 @@
-import { User, Conversation, NotificationItem, MessageAction } from '../types';
+import { User, Conversation, NotificationItem, MessageAction, Lead } from '../types';
 import { ONLINE_FLYER_URLS } from '../utils/imageAssets';
 
 const { autumnPromo, productLaunch, eventSummit, promoSale } = ONLINE_FLYER_URLS;
@@ -40,7 +40,8 @@ export const INITIAL_USERS: User[] = [
     state: 'California',
     city: 'Los Angeles',
     postalCode: '90012',
-    registeredAt: '2026-10-01T10:00:00Z'
+    registeredAt: '2026-10-01T10:00:00Z',
+    referralCode: 'RAPHAEL01'
   },
   {
     id: 'user-pending-1',
@@ -62,7 +63,9 @@ export const INITIAL_USERS: User[] = [
     state: 'Madrid',
     city: 'Madrid',
     postalCode: '28001',
-    registeredAt: '2026-10-12T14:30:00Z'
+    registeredAt: '2026-10-12T14:30:00Z',
+    referralCode: 'ELENA01',
+    referredByUserId: 'user-marketer'
   },
   {
     id: 'user-pending-2',
@@ -84,7 +87,9 @@ export const INITIAL_USERS: User[] = [
     state: 'England',
     city: 'London',
     postalCode: '10001',
-    registeredAt: '2026-10-13T02:15:00Z'
+    registeredAt: '2026-10-13T02:15:00Z',
+    referralCode: 'MARCUS01',
+    referredByUserId: 'user-pending-1'
   },
   {
     id: 'user-rejected-1',
@@ -107,7 +112,33 @@ export const INITIAL_USERS: User[] = [
     city: 'CDMX',
     postalCode: '01000',
     registeredAt: '2026-10-10T09:00:00Z',
-    rejectionReason: 'Invalid agency verification credentials'
+    rejectionReason: 'Invalid agency verification credentials',
+    referralCode: 'CARLOS01',
+    referredByUserId: 'user-marketer'
+  },
+  {
+    id: 'user-ref-sara',
+    name: 'Sara Kim',
+    email: 'sara.kim@outreach.io',
+    phone: '555 010 8899',
+    phoneCountryCode: '+1',
+    instagram: '@sara.outreach',
+    password: 'Marketer@123',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=256&q=80',
+    role: 'Marketer',
+    company: 'Outreach IO',
+    approvalStatus: 'approved',
+    hasCompletedTour: true,
+    preferredFlyerLanguage: 'en',
+    preferredFlyerCategories: ['slip_fall', 'car_accident'],
+    country: 'United States',
+    countryCode: 'US',
+    state: 'New York',
+    city: 'New York',
+    postalCode: '10001',
+    registeredAt: '2026-10-05T12:00:00Z',
+    referralCode: 'SARA01',
+    referredByUserId: 'user-marketer'
   }
 ];
 
@@ -694,3 +725,28 @@ export const INITIAL_NOTIFICATIONS: Record<string, NotificationItem[]> = {
     }
   ]
 };
+
+export const INITIAL_LEADS: Lead[] = [
+  {
+    id: 'lead-1',
+    fullName: 'James Carter',
+    phone: '+1 (555) 204-1188',
+    email: 'james.carter@email.com',
+    accidentType: 'car_accident',
+    notes: 'Rear-end collision on I-5. Interested in free consultation.',
+    createdByUserId: 'user-marketer',
+    createdByName: 'Raphael Rivera Berríos',
+    createdAt: '2026-10-11T16:20:00Z'
+  },
+  {
+    id: 'lead-2',
+    fullName: 'Maria Lopez',
+    phone: '+1 (555) 882-4410',
+    email: 'maria.lopez@email.com',
+    accidentType: 'slip_fall',
+    notes: 'Fell at grocery store. Looking for Spanish-speaking attorney.',
+    createdByUserId: 'user-marketer',
+    createdByName: 'Raphael Rivera Berríos',
+    createdAt: '2026-10-12T09:45:00Z'
+  }
+];

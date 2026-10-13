@@ -23,6 +23,10 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         return 'Analytics';
       case 'performance':
         return 'Performance';
+      case 'referrals':
+        return 'Referrals';
+      case 'leads':
+        return 'Leads';
       case 'help':
         return 'Help & FAQ';
       case 'notifications':
@@ -48,6 +52,12 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         return 'Posting performance, content mix & marketer leaderboard';
       case 'performance':
         return 'Your posting stats, streak & creative history';
+      case 'referrals':
+        return 'Share your link & grow your marketer network';
+      case 'leads':
+        return isAdmin
+          ? 'View-only — all marketer leads'
+          : 'Capture contacts — name, phone, email, accident & notes';
       case 'help':
         return 'Guides, FAQs, and tour replay';
       case 'notifications':

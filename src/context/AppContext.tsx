@@ -7,16 +7,29 @@ import {
   ActiveTab,
   Message,
   BulkSendOptions,
-  AppLanguage
+  AppLanguage,
+  Lead,
+  FlyerCategory
 } from '../types';
 import {
   INITIAL_USERS,
   INITIAL_ACTIONS,
   INITIAL_CONVERSATIONS,
-  INITIAL_NOTIFICATIONS
+  INITIAL_NOTIFICATIONS,
+  INITIAL_LEADS
 } from '../data/mockData';
 import { resolveImageUrl, ONLINE_FLYER_URLS } from '../utils/imageAssets';
 import { getTranslation, TranslationDict } from '../utils/i18n';
+import {
+  buildReferralCode,
+  ensureAllReferralCodes,
+  findUserByReferralCode,
+  getReferralLink,
+  readRefFromUrl,
+  persistPendingRef,
+  loadPendingRef,
+  clearPendingRef
+} from '../utils/referrals';
 
 interface ToastState {
   id: number;
@@ -53,6 +66,10 @@ interface AppContextType {
   signup: (newUser: Omit<User, 'id'>) => boolean;
   logout: () => void;
   updateProfile: (updatedData: Partial<User>) => void;
+  pendingReferralCode: string | null;
+  setPendingReferralCode: (code: string | null) => void;
+  getReferralLinkForUser: (userId?: string) => string | null;
+  findReferrerByCode: (code: string) => User | undefined;
   approveMarketer: (userId: string) => void;
   rejectMarketer: (userId: string, reason?: string) => void;
   completeTour: () => void;
@@ -80,6 +97,27 @@ interface AppContextType {
   markMessagesAsRead: (conversationId: string) => void;
   pendingActionsCount: number;
   pendingMarketerRequestsCount: number;
+
+  // Leads
+  leads: Lead[];
+  addLead: (data: {
+    fullName: string;
+    phone: string;
+    email: string;
+    accidentType: FlyerCategory;
+    notes: string;
+  }) => void;
+  updateLead: (
+    leadId: string,
+    data: {
+      fullName: string;
+      phone: string;
+      email: string;
+      accidentType: FlyerCategory;
+      notes: string;
+    }
+  ) => void;
+  deleteLead: (leadId: string) => void;
 
   // Modal for Not Posted
   notPostedModal: {
@@ -114,20 +152,45 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Registered users state
   const [users, setUsers] = useState<User[]>(() => {
+    const mergeReferralSeed = (list: User[]): User[] => {
+      const byEmail = new Map(list.map((u) => [u.email.toLowerCase(), u]));
+      const merged = list.map((u) => {
+        const seed = INITIAL_USERS.find(
+          (s) => s.id === u.id || s.email.toLowerCase() === u.email.toLowerCase()
+        );
+        if (!seed) return u;
+        return {
+          ...u,
+          referralCode: u.referralCode || seed.referralCode,
+          referredByUserId: u.referredByUserId ?? seed.referredByUserId
+        };
+      });
+      for (const seed of INITIAL_USERS) {
+        if (!byEmail.has(seed.email.toLowerCase())) {
+          merged.push(seed);
+          byEmail.set(seed.email.toLowerCase(), seed);
+        }
+      }
+      return ensureAllReferralCodes(merged);
+    };
+
     const saved = localStorage.getItem('marketpulse_users_v3');
     if (saved) {
       try {
         const parsed: User[] = JSON.parse(saved);
-        // Ensure both fixed demo accounts exist with correct roles
         const adminFound = parsed.some((u) => u.email.toLowerCase() === 'admin@marketingapp.com');
         const marketerFound = parsed.some((u) => u.email.toLowerCase() === 'marketer@marketingapp.com');
-        if (adminFound && marketerFound) return parsed;
+        if (adminFound && marketerFound) return mergeReferralSeed(parsed);
       } catch {
         // Fallback to INITIAL_USERS
       }
     }
-    return INITIAL_USERS;
+    return ensureAllReferralCodes(INITIAL_USERS);
   });
+
+  const [pendingReferralCode, setPendingReferralCodeState] = useState<string | null>(() =>
+    loadPendingRef()
+  );
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     const saved = localStorage.getItem('marketpulse_current_uid_v3');
@@ -147,6 +210,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTab] = useState<ActiveTab>('conversations');
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [targetMessageId, setTargetMessageId] = useState<string | null>(null);
+
+  // Capture ?ref=CODE from URL → open signup with that referrer
+  useEffect(() => {
+    const fromUrl = readRefFromUrl();
+    if (!fromUrl) return;
+    const clean = fromUrl.trim().toUpperCase();
+    persistPendingRef(clean);
+    setPendingReferralCodeState(clean);
+    setAuthView('signup');
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('ref');
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const setPendingReferralCode = useCallback((code: string | null) => {
+    if (!code) {
+      clearPendingRef();
+      setPendingReferralCodeState(null);
+      return;
+    }
+    const clean = code.trim().toUpperCase();
+    persistPendingRef(clean);
+    setPendingReferralCodeState(clean);
+  }, []);
+
+  const findReferrerByCode = useCallback(
+    (code: string) => findUserByReferralCode(users, code),
+    [users]
+  );
+
+  const getReferralLinkForUser = useCallback(
+    (userId?: string) => {
+      const id = userId || currentUserId;
+      if (!id) return null;
+      const user = users.find((u) => u.id === id);
+      if (!user?.referralCode) return null;
+      return getReferralLink(user.referralCode);
+    },
+    [users, currentUserId]
+  );
 
   // Message Actions state (Keyed by `${userId}_${messageId}`)
   const [actionsMap, setActionsMap] = useState<Record<string, MessageAction>>(() => {
@@ -211,6 +318,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  // Leads
+  const [leads, setLeads] = useState<Lead[]>(() => {
+    const saved = localStorage.getItem('marketpulse_leads_v1');
+    if (!saved) return INITIAL_LEADS;
+    try {
+      const parsed: Lead[] = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return INITIAL_LEADS;
+      const ids = new Set(parsed.map((l) => l.id));
+      const missing = INITIAL_LEADS.filter((l) => !ids.has(l.id));
+      return [...parsed, ...missing];
+    } catch {
+      return INITIAL_LEADS;
+    }
+  });
+
   // Modal for Not Posted
   const [notPostedModal, setNotPostedModal] = useState<{
     isOpen: boolean;
@@ -261,6 +383,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('marketpulse_notifications_v4', JSON.stringify(notificationsMap));
   }, [notificationsMap]);
+
+  useEffect(() => {
+    localStorage.setItem('marketpulse_leads_v1', JSON.stringify(leads));
+  }, [leads]);
 
   const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'info') => {
     const id = Date.now();
@@ -1360,6 +1486,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const signup = useCallback(
     (newUserData: Omit<User, 'id'>) => {
       const newId = `user-${Date.now()}`;
+      const referralCode = buildReferralCode({ id: newId, name: newUserData.name });
+      const referrerId =
+        newUserData.referredByUserId ||
+        findUserByReferralCode(
+          // use functional lookup against latest via closure — refreshed below
+          users,
+          pendingReferralCode || undefined
+        )?.id;
+
       const newUser: User = {
         ...newUserData,
         id: newId,
@@ -1367,10 +1502,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         company: 'BrandPulse Agency',
         approvalStatus: 'pending',
         hasCompletedTour: false,
-        registeredAt: newUserData.registeredAt || new Date().toISOString()
+        registeredAt: newUserData.registeredAt || new Date().toISOString(),
+        referralCode,
+        referredByUserId: referrerId
       };
 
-      setUsers((prev) => [...prev, newUser]);
+      setUsers((prev) => ensureAllReferralCodes([...prev, newUser]));
+      clearPendingRef();
+      setPendingReferralCodeState(null);
       setRegisteredEmail(newUserData.email);
       setSignupSuccessMessage(
         'Account created successfully. Your registration is pending admin approval — you can log in after approval.'
@@ -1454,7 +1593,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast('Account created successfully. Please login to continue.', 'success');
       return true;
     },
-    [showToast]
+    [showToast, users, pendingReferralCode]
   );
 
   const logout = useCallback(() => {
@@ -1476,6 +1615,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [currentUserId, showToast]
   );
 
+  const addLead = useCallback(
+    (data: {
+      fullName: string;
+      phone: string;
+      email: string;
+      accidentType: FlyerCategory;
+      notes: string;
+    }) => {
+      if (!currentUser || currentUser.role === 'Admin') return;
+      const lead: Lead = {
+        id: `lead-${Date.now()}`,
+        fullName: data.fullName,
+        phone: data.phone,
+        email: data.email,
+        accidentType: data.accidentType,
+        notes: data.notes || '',
+        createdByUserId: currentUser.id,
+        createdByName: currentUser.name,
+        createdAt: new Date().toISOString()
+      };
+      setLeads((prev) => [lead, ...prev]);
+      showToast('Lead saved successfully', 'success');
+    },
+    [currentUser, showToast]
+  );
+
+  const updateLead = useCallback(
+    (
+      leadId: string,
+      data: {
+        fullName: string;
+        phone: string;
+        email: string;
+        accidentType: FlyerCategory;
+        notes: string;
+      }
+    ) => {
+      if (!currentUser || currentUser.role === 'Admin') return;
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === leadId
+            ? {
+                ...l,
+                fullName: data.fullName,
+                phone: data.phone,
+                email: data.email,
+                accidentType: data.accidentType,
+                notes: data.notes || ''
+              }
+            : l
+        )
+      );
+      showToast('Lead updated successfully', 'success');
+    },
+    [currentUser, showToast]
+  );
+
+  const deleteLead = useCallback(
+    (leadId: string) => {
+      if (!currentUser || currentUser.role === 'Admin') return;
+      setLeads((prev) => prev.filter((l) => l.id !== leadId));
+      showToast('Lead deleted', 'info');
+    },
+    [currentUser, showToast]
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -1490,6 +1695,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         signup,
         logout,
         updateProfile,
+        pendingReferralCode,
+        setPendingReferralCode,
+        getReferralLinkForUser,
+        findReferrerByCode,
         activeTab,
         setActiveTab,
         activeConversationId,
@@ -1507,6 +1716,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markMessagesAsRead,
         pendingActionsCount,
         pendingMarketerRequestsCount,
+        leads,
+        addLead,
+        updateLead,
+        deleteLead,
         notPostedModal,
         openNotPostedModal,
         closeNotPostedModal,

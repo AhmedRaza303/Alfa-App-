@@ -34,6 +34,18 @@ export type FlyerCategory =
 
 export type ContentCategory = 'flyer' | 'personalized' | 'normal';
 
+export interface Lead {
+  id: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  accidentType: FlyerCategory;
+  notes: string;
+  createdByUserId: string;
+  createdByName: string;
+  createdAt: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -60,6 +72,9 @@ export interface User {
   state?: string;
   city?: string;
   postalCode?: string;
+  // Referral network
+  referralCode?: string;
+  referredByUserId?: string;
   // Onboarding
   hasCompletedTour?: boolean;
 }
@@ -137,6 +152,8 @@ export type ActiveTab =
   | 'marketer_requests'
   | 'analytics'
   | 'performance'
+  | 'referrals'
+  | 'leads'
   | 'help'
   | 'notifications'
   | 'profile';

@@ -58,8 +58,21 @@ const inputErr =
   'border-rose-400 focus:ring-rose-400 focus:border-rose-400 bg-rose-50/40';
 
 export const SignUpView: React.FC = () => {
-  const { signup, setAuthView, users, t, language } = useApp();
+  const {
+    signup,
+    setAuthView,
+    users,
+    t,
+    language,
+    pendingReferralCode,
+    findReferrerByCode
+  } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const referrer = useMemo(
+    () => (pendingReferralCode ? findReferrerByCode(pendingReferralCode) : undefined),
+    [pendingReferralCode, findReferrerByCode]
+  );
 
   const [step, setStep] = useState<1 | 2>(1);
 
@@ -268,7 +281,8 @@ export const SignUpView: React.FC = () => {
       city: city.trim(),
       postalCode: sanitizePostalCode(postalCode),
       registeredAt: new Date().toISOString(),
-      hasCompletedTour: false
+      hasCompletedTour: false,
+      referredByUserId: referrer?.id
     });
 
     setIsSubmittedSuccess(true);
@@ -360,6 +374,29 @@ export const SignUpView: React.FC = () => {
             {t.getStartedHeading}
           </h1>
           <p className="text-xs text-slate-500 mt-1">{t.getStartedSubtitle}</p>
+
+          {referrer && (
+            <div className="mt-3 flex items-center gap-2.5 text-left bg-violet-50 border border-violet-100 rounded-xl px-3 py-2">
+              <img
+                src={referrer.avatar}
+                alt=""
+                className="w-8 h-8 rounded-full object-cover border border-violet-200 shrink-0"
+                referrerPolicy="no-referrer"
+              />
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">
+                  Referred by
+                </p>
+                <p className="text-xs font-bold text-slate-900 truncate">{referrer.name}</p>
+              </div>
+            </div>
+          )}
+          {pendingReferralCode && !referrer && (
+            <div className="mt-3 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+              Referral code <span className="font-extrabold">{pendingReferralCode}</span> not
+              found — you can still sign up.
+            </div>
+          )}
 
           {/* Progress */}
           <div className="mt-4 px-1">

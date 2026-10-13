@@ -91,6 +91,8 @@ export interface TranslationDict {
   marketerRequests: string;
   analytics: string;
   performance: string;
+  referrals: string;
+  leads: string;
   help: string;
   notifications: string;
   profile: string;
@@ -241,6 +243,8 @@ const en: TranslationDict = {
   marketerRequests: 'Requests',
   analytics: 'Analytics',
   performance: 'Performance',
+  referrals: 'Referrals',
+  leads: 'Leads',
   help: 'Help',
   notifications: 'Notifications',
   profile: 'Profile',
@@ -388,6 +392,8 @@ const es: TranslationDict = {
   marketerRequests: 'Solicitudes',
   analytics: 'Analítica',
   performance: 'Rendimiento',
+  referrals: 'Referidos',
+  leads: 'Leads',
   help: 'Ayuda',
   notifications: 'Notificaciones',
   profile: 'Perfil',

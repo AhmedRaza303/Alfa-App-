@@ -13,9 +13,11 @@ import {
   UserCheck,
   MessageSquare,
   ChevronRight,
-  History
+  History,
+  ClipboardList
 } from 'lucide-react';
 import { resolveImageUrl } from '../../utils/imageAssets';
+import { getFlyerCategoryLabel } from '../../utils/flyerCategories';
 
 type HistoryItem = {
   message: Message;
@@ -78,6 +80,8 @@ export const PerformanceHistoryView: React.FC = () => {
   const {
     currentUser,
     conversations,
+    leads,
+    language,
     getMessageAction,
     openConversation,
     setActiveTab,
@@ -134,6 +138,21 @@ export const PerformanceHistoryView: React.FC = () => {
       else break;
     }
 
+    const myLeads = currentUser
+      ? leads
+          .filter((l) => l.createdByUserId === currentUser.id)
+          .sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+      : [];
+    const leadTypeMap = new Map<string, number>();
+    for (const lead of myLeads) {
+      leadTypeMap.set(lead.accidentType, (leadTypeMap.get(lead.accidentType) || 0) + 1);
+    }
+    const leadTypes = Array.from(leadTypeMap.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count);
+
     return {
       items,
       total,
@@ -143,9 +162,12 @@ export const PerformanceHistoryView: React.FC = () => {
       postRate,
       responseRate,
       streak,
-      byCategory
+      byCategory,
+      leadTotal: myLeads.length,
+      leadTypes,
+      recentLeads: myLeads.slice(0, 4)
     };
-  }, [conversations, getMessageAction]);
+  }, [conversations, getMessageAction, leads, currentUser]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return data.items;
@@ -169,6 +191,7 @@ export const PerformanceHistoryView: React.FC = () => {
   }
 
   const maxCategory = Math.max(...Object.values(data.byCategory), 1);
+  const maxLeadType = Math.max(...data.leadTypes.map((t) => t.count), 1);
 
   const handleOpenItem = (item: HistoryItem) => {
     openConversation(item.message.conversationId, item.message.id);
@@ -231,6 +254,25 @@ export const PerformanceHistoryView: React.FC = () => {
             />
           </div>
 
+          <button
+            type="button"
+            onClick={() => setActiveTab('leads')}
+            className="mt-2.5 w-full flex items-center justify-between gap-2 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2.5 text-left hover:bg-sky-100 transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-2 min-w-0">
+              <ClipboardList className="w-4 h-4 text-sky-600 shrink-0" />
+              <span>
+                <span className="block text-xs font-extrabold text-sky-900">
+                  {data.leadTotal} lead{data.leadTotal === 1 ? '' : 's'} captured
+                </span>
+                <span className="block text-[10px] font-semibold text-sky-700/80">
+                  View & add leads
+                </span>
+              </span>
+            </span>
+            <ChevronRight className="w-4 h-4 text-sky-500 shrink-0" />
+          </button>
+
           <div className="mt-3.5">
             <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-1.5">
               <span>Activity breakdown</span>
@@ -271,6 +313,68 @@ export const PerformanceHistoryView: React.FC = () => {
               </span>
             </div>
           </div>
+        </section>
+
+        {/* Leads summary */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-1.5">
+              <ClipboardList className="w-3.5 h-3.5 text-sky-600" />
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                Your leads
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('leads')}
+              className="text-[10px] font-bold text-sky-700 hover:underline cursor-pointer"
+            >
+              Open leads
+            </button>
+          </div>
+
+          {data.leadTotal === 0 ? (
+            <p className="text-xs text-slate-400 py-1">
+              No leads yet — capture name, phone, email & accident type on Leads.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                {data.leadTypes.map((t) => (
+                  <div key={t.type}>
+                    <div className="flex items-center justify-between text-[11px] mb-1">
+                      <span className="font-semibold text-slate-700 truncate pr-2">
+                        {getFlyerCategoryLabel(t.type, language)}
+                      </span>
+                      <span className="font-bold text-slate-500 shrink-0">{t.count}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full bg-sky-500 transition-all"
+                        style={{ width: `${(t.count / maxLeadType) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <ul className="space-y-1.5">
+                {data.recentLeads.map((lead) => (
+                  <li
+                    key={lead.id}
+                    className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-900 truncate">{lead.fullName}</p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        {getFlyerCategoryLabel(lead.accidentType, language)} · {lead.phone}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
 
         {/* Content mix */}

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useShellLayout } from '../../context/ShellLayoutContext';
 import { ContentCategory, PostingStatus } from '../../types';
+import { getFlyerCategoryLabel } from '../../utils/flyerCategories';
 import {
   BarChart3,
   CheckCircle2,
@@ -14,7 +15,8 @@ import {
   TrendingUp,
   Percent,
   SendHorizontal,
-  UserPlus
+  UserPlus,
+  ClipboardList
 } from 'lucide-react';
 
 type ReasonCount = { reason: string; count: number };
@@ -67,6 +69,8 @@ export const AnalyticsDashboardView: React.FC = () => {
   const {
     conversations,
     users,
+    leads,
+    language,
     getMessageAction,
     currentUser,
     setActiveTab,
@@ -155,6 +159,31 @@ export const AnalyticsDashboardView: React.FC = () => {
       rejected: allMarketers.filter((u) => u.approvalStatus === 'rejected').length
     };
 
+    const leadTypeMap = new Map<string, number>();
+    const leadOwnerMap = new Map<
+      string,
+      { id: string; name: string; avatar: string; count: number }
+    >();
+    for (const lead of leads) {
+      leadTypeMap.set(lead.accidentType, (leadTypeMap.get(lead.accidentType) || 0) + 1);
+      const owner = leadOwnerMap.get(lead.createdByUserId) || {
+        id: lead.createdByUserId,
+        name: lead.createdByName,
+        avatar:
+          users.find((u) => u.id === lead.createdByUserId)?.avatar ||
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+        count: 0
+      };
+      owner.count += 1;
+      leadOwnerMap.set(lead.createdByUserId, owner);
+    }
+    const leadTypes = Array.from(leadTypeMap.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count);
+    const topLeadCapturers = Array.from(leadOwnerMap.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
     return {
       total,
       posted,
@@ -166,9 +195,12 @@ export const AnalyticsDashboardView: React.FC = () => {
       reasons,
       marketers,
       marketerCounts,
-      threadCount: conversations.length
+      threadCount: conversations.length,
+      leadTotal: leads.length,
+      leadTypes,
+      topLeadCapturers
     };
-  }, [conversations, users, getMessageAction]);
+  }, [conversations, users, leads, getMessageAction]);
 
   if (currentUser?.role !== 'Admin') {
     return (
@@ -191,6 +223,7 @@ export const AnalyticsDashboardView: React.FC = () => {
 
   const maxReason = Math.max(...stats.reasons.map((r) => r.count), 1);
   const maxCategory = Math.max(...Object.values(stats.byCategory), 1);
+  const maxLeadType = Math.max(...stats.leadTypes.map((t) => t.count), 1);
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-slate-50 overflow-y-auto">
@@ -263,6 +296,22 @@ export const AnalyticsDashboardView: React.FC = () => {
               icon={<AlertTriangle className="w-4 h-4" />}
               tone="rose"
             />
+            <button
+              type="button"
+              onClick={() => setActiveTab('leads')}
+              className="col-span-2 text-left rounded-xl border border-sky-100 bg-sky-50 p-2.5 hover:bg-sky-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sky-700 opacity-80">
+                  <ClipboardList className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] font-bold text-sky-600">View all →</span>
+              </div>
+              <p className="text-lg font-extrabold leading-none tracking-tight text-sky-800 mt-1">
+                {stats.leadTotal}
+              </p>
+              <p className="text-[10px] font-semibold mt-1 text-sky-700/80">Total leads captured</p>
+            </button>
           </div>
 
           {/* Posting funnel bar */}
@@ -301,6 +350,81 @@ export const AnalyticsDashboardView: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Leads */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-1.5">
+              <ClipboardList className="w-3.5 h-3.5 text-sky-600" />
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                Leads
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('leads')}
+              className="text-[10px] font-bold text-sky-700 hover:underline cursor-pointer"
+            >
+              Open leads
+            </button>
+          </div>
+
+          {stats.leadTotal === 0 ? (
+            <p className="text-xs text-slate-400 py-2">No leads captured yet.</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  By accident type
+                </p>
+                {stats.leadTypes.map((t) => (
+                  <div key={t.type}>
+                    <div className="flex items-center justify-between text-[11px] mb-1">
+                      <span className="font-semibold text-slate-700 truncate pr-2">
+                        {getFlyerCategoryLabel(t.type, language)}
+                      </span>
+                      <span className="font-bold text-slate-500 shrink-0">{t.count}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full bg-sky-500 transition-all"
+                        style={{ width: `${(t.count / maxLeadType) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {stats.topLeadCapturers.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                    Top capturers
+                  </p>
+                  <ul className="space-y-1.5">
+                    {stats.topLeadCapturers.map((m, idx) => (
+                      <li
+                        key={m.id}
+                        className="flex items-center gap-2 p-2 rounded-xl bg-sky-50/80 border border-sky-100"
+                      >
+                        <span className="w-4 text-center text-[10px] font-extrabold text-slate-400">
+                          {idx + 1}
+                        </span>
+                        <img
+                          src={m.avatar}
+                          alt=""
+                          className="w-7 h-7 rounded-full object-cover border border-slate-200"
+                          referrerPolicy="no-referrer"
+                        />
+                        <p className="text-xs font-bold text-slate-800 truncate flex-1">{m.name}</p>
+                        <span className="text-[11px] font-extrabold text-sky-700">{m.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
 
         {/* Marketers */}
         <section className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
