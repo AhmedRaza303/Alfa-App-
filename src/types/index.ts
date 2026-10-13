@@ -14,18 +14,44 @@ export type PostingReason =
 
 export type UserRole = 'Admin' | 'Marketer';
 
-export type ContentCategory = 'flyer' | 'personalized';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export type AppLanguage = 'en' | 'es';
+
+export type FlyerLanguage = 'en' | 'es';
+
+export type FlyerCategory = 'work_injury' | 'car_accident';
+
+export type ContentCategory = 'flyer' | 'personalized' | 'none';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   phone: string;
+  phoneCountryCode?: string;
   instagram?: string;
   avatar: string;
   password?: string;
   role: UserRole;
   company?: string;
+  // Approval workflow
+  approvalStatus: ApprovalStatus;
+  registeredAt?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  // Preferences & Location
+  applicationLanguage?: AppLanguage;
+  preferredFlyerLanguage?: FlyerLanguage;
+  preferredFlyerCategories?: FlyerCategory[];
+  country?: string;
+  countryCode?: string;
+  state?: string;
+  city?: string;
+  postalCode?: string;
+  // Onboarding
+  hasCompletedTour?: boolean;
 }
 
 export interface MessageAction {
@@ -86,7 +112,7 @@ export interface Conversation {
 export interface NotificationItem {
   id: string;
   userId: string;
-  type: 'message' | 'content_required' | 'posted' | 'not_posted' | 'action_reminder';
+  type: 'message' | 'content_required' | 'posted' | 'not_posted' | 'action_reminder' | 'approval_update';
   title: string;
   description: string;
   timestamp: string;
@@ -95,7 +121,12 @@ export interface NotificationItem {
   messageId?: string;
 }
 
-export type ActiveTab = 'conversations' | 'bulk_sender' | 'notifications' | 'profile';
+export type ActiveTab =
+  | 'conversations'
+  | 'bulk_sender'
+  | 'marketer_requests'
+  | 'notifications'
+  | 'profile';
 
 export interface BulkSendOptions {
   category: ContentCategory;

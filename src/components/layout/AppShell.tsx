@@ -97,7 +97,7 @@ export const AppShell: React.FC = () => {
       {/* Main Responsive Application Shell */}
       <div
         className={`w-full flex-1 min-h-0 flex flex-col transition-all duration-300 bg-white relative shadow-2xl sm:my-2 lg:my-3 sm:rounded-3xl sm:border sm:border-slate-300/80 sm:overflow-hidden ${
-          deviceMode === 'mobile' ? 'max-w-md' : 'max-w-2xl'
+          deviceMode === 'mobile' ? 'max-w-md' : 'max-w-4xl'
         }`}
       >
         {/* Top Header (shown on inbox list and notifications/profile tabs) */}

@@ -6,7 +6,8 @@ import {
   MessageAction,
   ActiveTab,
   Message,
-  BulkSendOptions
+  BulkSendOptions,
+  AppLanguage
 } from '../types';
 import {
   INITIAL_USERS,
@@ -15,6 +16,7 @@ import {
   INITIAL_NOTIFICATIONS
 } from '../data/mockData';
 import { resolveImageUrl, ONLINE_FLYER_URLS } from '../utils/imageAssets';
+import { getTranslation, TranslationDict } from '../utils/i18n';
 
 interface ToastState {
   id: number;
@@ -40,16 +42,23 @@ export interface SendMessageOptions {
 interface AppContextType {
   // Auth & User
   currentUser: User | null;
+  users: User[];
   isAuthenticated: boolean;
   authView: 'login' | 'signup' | 'app';
   setAuthView: (view: 'login' | 'signup' | 'app') => void;
   signupSuccessMessage: string | null;
   setSignupSuccessMessage: (msg: string | null) => void;
   registeredEmail: string;
-  login: (email: string, password?: string) => { success: boolean; message?: string };
+  login: (email: string, password?: string) => { success: boolean; message?: string; approvalStatus?: string; user?: User };
   signup: (newUser: Omit<User, 'id'>) => boolean;
   logout: () => void;
   updateProfile: (updatedData: Partial<User>) => void;
+  approveMarketer: (userId: string) => void;
+  rejectMarketer: (userId: string, reason?: string) => void;
+  completeTour: () => void;
+  language: AppLanguage;
+  setLanguage: (lang: AppLanguage) => void;
+  t: TranslationDict;
 
   // Navigation
   activeTab: ActiveTab;
@@ -1053,6 +1062,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('All notifications marked as read', 'info');
   }, [currentUserId, showToast]);
 
+  const [language, setLanguageState] = useState<AppLanguage>(() => {
+    return (localStorage.getItem('marketpulse_lang') as AppLanguage) || 'en';
+  });
+
+  const setLanguage = useCallback((lang: AppLanguage) => {
+    setLanguageState(lang);
+    localStorage.setItem('marketpulse_lang', lang);
+  }, []);
+
+  const t = useMemo(() => getTranslation(language), [language]);
+
+  const approveMarketer = useCallback((userId: string) => {
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId
+          ? { ...u, approvalStatus: 'approved' as const, reviewedAt: new Date().toISOString() }
+          : u
+      )
+    );
+    showToast('Marketer account approved', 'success');
+  }, [showToast]);
+
+  const rejectMarketer = useCallback((userId: string, reason?: string) => {
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId
+          ? {
+              ...u,
+              approvalStatus: 'rejected' as const,
+              rejectionReason: reason || 'Application declined by operations.',
+              reviewedAt: new Date().toISOString()
+            }
+          : u
+      )
+    );
+    showToast('Marketer account rejected', 'info');
+  }, [showToast]);
+
+  const completeTour = useCallback(() => {
+    if (!currentUserId) return;
+    setUsers((prev) =>
+      prev.map((u) => (u.id === currentUserId ? { ...u, hasCompletedTour: true } : u))
+    );
+  }, [currentUserId]);
+
   const login = useCallback(
     (email: string, password?: string) => {
       const cleanEmail = email.trim().toLowerCase();
@@ -1064,6 +1118,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (password && user.password && user.password !== password) {
         return { success: false, message: 'Invalid email or password.' };
+      }
+
+      if (user.approvalStatus === 'rejected') {
+        return {
+          success: false,
+          message: 'Your marketer account application has been rejected.',
+          approvalStatus: 'rejected',
+          user
+        };
       }
 
       setSignupSuccessMessage(null);
@@ -1083,7 +1146,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       showToast(`Welcome back, ${user.name}!`, 'success');
-      return { success: true };
+      return { success: true, user, approvalStatus: user.approvalStatus };
     },
     [users, conversationsMap, showToast]
   );
@@ -1253,7 +1316,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markNotificationAsRead,
         markAllNotificationsAsRead,
         toast,
-        showToast
+        showToast,
+        users,
+        approveMarketer,
+        rejectMarketer,
+        completeTour,
+        language,
+        setLanguage,
+        t
       }}
     >
       {children}
