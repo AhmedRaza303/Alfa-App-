@@ -290,10 +290,12 @@ export const validateInternationalPhone = (
     }
 
     const parsed = parsePhoneNumberFromString(trimmed, code);
-    if (!parsed || !parsed.isValid()) {
+    // Accept isPossible() — isValid() rejects many real-looking / test numbers
+    // (e.g. 222-222-2222) even when length & country format are correct.
+    if (!parsed || !parsed.isPossible()) {
       return {
         isValid: false,
-        error: 'Please enter a valid phone number for the selected country.'
+        error: `Enter a valid ${expected}-digit phone number for the selected country.`
       };
     }
 
