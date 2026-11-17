@@ -559,65 +559,36 @@ export const ConversationDetailView: React.FC = () => {
           </div>
         </header>
       ) : (
-        /* Marketer: short title + notification/menu controls */
-        <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 px-4 py-2 shadow-2xs shrink-0">
-          <div className="flex items-center justify-between gap-2 relative">
+        /* Marketer: title + profile (alerts stay in bottom nav) */
+        <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 px-4 py-2.5 shadow-2xs shrink-0">
+          <div className="flex items-center justify-between gap-2">
             <h1 className="text-[15px] font-bold text-slate-900 tracking-tight truncate min-w-0">
               Conversation
             </h1>
 
-            <div className="flex items-center gap-1 shrink-0">
+            {currentUser && (
               <button
                 type="button"
-                onClick={() => setActiveTab('notifications')}
-                className="p-1.5 rounded-xl text-blue-600 hover:text-blue-800 hover:bg-blue-50/80 flex items-center justify-center transition-colors relative cursor-pointer"
-                aria-label="Notifications"
-                title="Notifications"
+                onClick={() => setActiveTab('profile')}
+                className="flex items-center gap-2 rounded-xl pl-1 pr-0.5 py-0.5 hover:bg-slate-50 transition-colors cursor-pointer shrink-0"
+                title="Profile"
               >
-                <Bell className="w-5 h-5" />
-                {unreadNotificationCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full" />
-                )}
+                <div className="text-right hidden sm:block">
+                  <span className="text-xs font-bold text-slate-900 block leading-tight">
+                    {currentUser.name}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">
+                    {currentUser.role || 'Marketer'}
+                  </span>
+                </div>
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
+                  className="w-8 h-8 rounded-full object-cover border border-slate-300 shadow-2xs"
+                  referrerPolicy="no-referrer"
+                />
               </button>
-
-              <button
-                type="button"
-                onClick={() => setHeaderMenuOpen(!headerMenuOpen)}
-                className="p-1.5 rounded-xl text-blue-600 hover:text-blue-800 hover:bg-blue-50/80 flex items-center justify-center transition-colors cursor-pointer"
-                aria-label="Menu"
-                title="Options"
-              >
-                <MoreVertical className="w-5 h-5" />
-              </button>
-
-              {headerMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setHeaderMenuOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-200/80 py-1 z-50 text-xs font-medium text-slate-700 animate-in fade-in-50 zoom-in-95">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHeaderMenuOpen(false);
-                        setActiveTab('profile');
-                      }}
-                      className="w-full px-3 py-2 text-left hover:bg-slate-50 cursor-pointer"
-                    >
-                      View Profile
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHeaderMenuOpen(false);
-                        setActiveTab('notifications');
-                      }}
-                      className="w-full px-3 py-2 text-left hover:bg-slate-50 cursor-pointer"
-                    >
-                      Alerts & Activity
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+            )}
           </div>
         </header>
       )}

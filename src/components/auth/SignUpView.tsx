@@ -544,11 +544,7 @@ export const SignUpView: React.FC = () => {
                 <p className="mt-1 text-[11px] font-semibold text-amber-700">
                   Code not found — you can still continue or fix the code
                 </p>
-              ) : (
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Paste a code here, or open an invite link (`?ref=CODE`) — both work
-                </p>
-              )}
+              ) : null}
             </div>
 
             <div>

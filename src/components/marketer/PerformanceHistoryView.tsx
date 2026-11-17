@@ -19,8 +19,7 @@ import {
   ChevronRight,
   ClipboardList,
   Languages,
-  CalendarRange,
-  Sparkles
+  CalendarRange
 } from 'lucide-react';
 import { getFlyerCategoryLabel } from '../../utils/flyerCategories';
 
@@ -529,22 +528,12 @@ export const PerformanceHistoryView: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('leads')}
-              className="text-[10px] font-bold text-sky-700 hover:underline cursor-pointer"
+              className="inline-flex items-center gap-0.5 text-sm font-extrabold text-sky-700 tabular-nums hover:text-sky-900 cursor-pointer"
+              title="Open leads"
             >
-              Open leads
-            </button>
-          </div>
-
-          <div className="rounded-xl border border-sky-100 bg-sky-50 p-3 mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-sky-700/80 mb-1">
-              Total leads captured
-            </p>
-            <p className="text-3xl font-extrabold text-sky-950 tabular-nums leading-none">
               {data.leadTotal}
-            </p>
-            <p className="text-[10px] font-semibold text-sky-700/70 mt-1">
-              Successfully submitted in this period
-            </p>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           {data.leadTotal === 0 ? (
@@ -625,7 +614,7 @@ export const PerformanceHistoryView: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <span className="inline-flex items-center gap-1.5 min-w-0">
                       <span
                         className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: seg.color }}
@@ -636,24 +625,12 @@ export const PerformanceHistoryView: React.FC = () => {
                         <Icon className="w-3 h-3" />
                         {seg.label} ({seg.value})
                       </span>
-                      {isPersonalized && (
-                        <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase text-violet-700">
-                          <Sparkles className="w-2.5 h-2.5" />
-                          Custom
-                        </span>
-                      )}
                     </span>
                     <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-slate-600 tabular-nums shrink-0">
                       {seg.pct}%
                       <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
                     </span>
                   </div>
-                  {isPersonalized && (
-                    <p className="text-[10px] text-violet-700/80 font-medium mt-1.5 leading-snug">
-                      Personalized content needs extra company effort — track how much custom
-                      material you receive vs standard flyers.
-                    </p>
-                  )}
                 </button>
               );
             })}

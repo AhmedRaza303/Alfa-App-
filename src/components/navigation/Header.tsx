@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { ShieldCheck, BarChart3, HelpCircle, CalendarDays } from 'lucide-react';
+import { ShieldCheck, BarChart3, CalendarDays } from 'lucide-react';
 
 interface HeaderProps {
   title?: string;
@@ -119,18 +119,13 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
               <BarChart3 className="w-4 h-4" />
             </button>
           )}
-          {activeTab !== 'help' && (
+          {currentUser && (
             <button
               type="button"
-              onClick={() => setActiveTab('help')}
-              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-200 flex items-center justify-center transition-colors cursor-pointer"
-              title="Help & FAQ"
+              onClick={() => setActiveTab('profile')}
+              className="flex items-center gap-2 rounded-xl pl-1 pr-0.5 py-0.5 hover:bg-slate-50 transition-colors cursor-pointer"
+              title="Profile"
             >
-              <HelpCircle className="w-4 h-4" />
-            </button>
-          )}
-          {currentUser && (
-            <>
               <div className="text-right hidden sm:block">
                 <span className="text-xs font-bold text-slate-900 block leading-tight">
                   {currentUser.name}
@@ -145,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
                 className="w-8 h-8 rounded-full object-cover border border-slate-300 shadow-2xs"
                 referrerPolicy="no-referrer"
               />
-            </>
+            </button>
           )}
         </div>
       </div>
