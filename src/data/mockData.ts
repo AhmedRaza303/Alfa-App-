@@ -1,4 +1,4 @@
-import { User, Conversation, NotificationItem, MessageAction, Lead } from '../types';
+import { User, Conversation, NotificationItem, MessageAction, Lead, TOUR_PAGES } from '../types';
 import { ONLINE_FLYER_URLS } from '../utils/imageAssets';
 
 const { autumnPromo, productLaunch, eventSummit, promoSale } = ONLINE_FLYER_URLS;
@@ -17,6 +17,7 @@ export const INITIAL_USERS: User[] = [
     company: 'Alfa Operations',
     approvalStatus: 'approved',
     hasCompletedTour: true,
+    completedTourPages: [...TOUR_PAGES],
     country: 'United States',
     countryCode: 'US'
   },
@@ -33,6 +34,7 @@ export const INITIAL_USERS: User[] = [
     company: 'BrandPulse Agency',
     approvalStatus: 'approved',
     hasCompletedTour: true,
+    completedTourPages: [...TOUR_PAGES],
     preferredFlyerLanguage: 'en',
     preferredFlyerCategories: ['work_injury', 'car_accident', 'slip_fall'],
     country: 'United States',
@@ -42,6 +44,32 @@ export const INITIAL_USERS: User[] = [
     postalCode: '90012',
     registeredAt: '2026-10-01T10:00:00Z',
     referralCode: 'RAPHAEL01'
+  },
+  /** Sample marketer — always eligible for Quick Tour testing (no first-time lock) */
+  {
+    id: 'user-tour',
+    name: 'Taylor Tour',
+    email: 'tour@marketingapp.com',
+    phone: '+1 (555) 100-2000',
+    phoneCountryCode: '+1',
+    instagram: '@taylor.tour',
+    password: 'Tour@123',
+    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=256&q=80',
+    role: 'Marketer',
+    company: 'Tour Demo Agency',
+    approvalStatus: 'approved',
+    hasCompletedTour: false,
+    completedTourPages: [],
+    isTourDemo: true,
+    preferredFlyerLanguage: 'en',
+    preferredFlyerCategories: ['car_accident', 'slip_fall'],
+    country: 'United States',
+    countryCode: 'US',
+    state: 'California',
+    city: 'San Diego',
+    postalCode: '92101',
+    registeredAt: '2026-11-15T10:00:00Z',
+    referralCode: 'TOUR01'
   },
   {
     id: 'user-pending-1',
@@ -139,6 +167,78 @@ export const INITIAL_USERS: User[] = [
     registeredAt: '2026-10-05T12:00:00Z',
     referralCode: 'SARA01',
     referredByUserId: 'user-marketer'
+  },
+  // New marketer root + 2 referrals under them
+  {
+    id: 'user-ref-jordan',
+    name: 'Jordan Hale',
+    email: 'jordan.hale@northline.co',
+    phone: '555 220 4411',
+    phoneCountryCode: '+1',
+    instagram: '@jordan.hale',
+    password: 'Marketer@123',
+    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=256&q=80',
+    role: 'Marketer',
+    company: 'Northline Media',
+    approvalStatus: 'approved',
+    hasCompletedTour: true,
+    preferredFlyerLanguage: 'en',
+    preferredFlyerCategories: ['truck_accident', 'work_injury', 'car_accident'],
+    country: 'United States',
+    countryCode: 'US',
+    state: 'Texas',
+    city: 'Austin',
+    postalCode: '78701',
+    registeredAt: '2026-10-08T09:30:00Z',
+    referralCode: 'JORDAN01'
+  },
+  {
+    id: 'user-ref-priya',
+    name: 'Priya Nair',
+    email: 'priya.nair@brightpath.io',
+    phone: '98765 43210',
+    phoneCountryCode: '+91',
+    instagram: '@priya.brightpath',
+    password: 'Marketer@123',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=256&q=80',
+    role: 'Marketer',
+    company: 'BrightPath Studio',
+    approvalStatus: 'approved',
+    hasCompletedTour: true,
+    preferredFlyerLanguage: 'en',
+    preferredFlyerCategories: ['medical_malpractice', 'slip_fall'],
+    country: 'India',
+    countryCode: 'IN',
+    state: 'Maharashtra',
+    city: 'Mumbai',
+    postalCode: '400001',
+    registeredAt: '2026-10-11T11:00:00Z',
+    referralCode: 'PRIYA01',
+    referredByUserId: 'user-ref-jordan'
+  },
+  {
+    id: 'user-ref-diego',
+    name: 'Diego Alvarez',
+    email: 'diego.alvarez@orbitpromo.mx',
+    phone: '55 9988 7766',
+    phoneCountryCode: '+52',
+    instagram: '@diego.orbit',
+    password: 'Marketer@123',
+    avatar: 'https://images.unsplash.com/photo-1463453091185-61582044d556?auto=format&fit=crop&w=256&q=80',
+    role: 'Marketer',
+    company: 'Orbit Promo',
+    approvalStatus: 'pending',
+    hasCompletedTour: false,
+    preferredFlyerLanguage: 'es',
+    preferredFlyerCategories: ['car_accident', 'motorcycle_accident'],
+    country: 'Mexico',
+    countryCode: 'MX',
+    state: 'Jalisco',
+    city: 'Guadalajara',
+    postalCode: '44100',
+    registeredAt: '2026-10-14T16:20:00Z',
+    referralCode: 'DIEGO01',
+    referredByUserId: 'user-ref-jordan'
   }
 ];
 
@@ -151,6 +251,12 @@ export const REASON_OPTIONS = [
   'Platform Issue',
   'Duplicate Content',
   'Other'
+];
+
+/** App-wide content languages — English & Spanish only */
+export const CONTENT_LANGUAGE_OPTIONS: { id: 'en' | 'es'; label: string }[] = [
+  { id: 'en', label: 'English' },
+  { id: 'es', label: 'Spanish (Español)' }
 ];
 
 export const INITIAL_ACTIONS: Record<string, MessageAction> = {
@@ -440,6 +546,32 @@ const DEMO_CONVERSATIONS: Conversation[] = [
           timestamp: '11:15 AM',
           isPostable: true,
           postingStatus: 'pending',
+          isRead: true,
+          reactions: [
+            { emoji: '👍', userId: 'user-marketer', userName: 'Raphael Rivera Berríos' },
+            { emoji: '🔥', userId: 'user-admin', userName: 'Admin' }
+          ]
+        },
+
+        // Message 8: Personalized with video for Raphael
+        {
+          id: 'msg-demo-pers-video-1',
+          conversationId: 'conv-raphael-ali',
+          senderId: 'user-admin',
+          senderName: 'Admin',
+          senderAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=256&q=80',
+          type: 'creative',
+          contentCategory: 'personalized',
+          recipientUserId: 'contact-raphael',
+          recipientName: 'Raphael Rivera Berríos',
+          campaignName: 'Story Walkthrough Video',
+          platformTarget: 'Instagram Reels',
+          videos: ['https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'],
+          text: 'Raphael — please post this short walkthrough video on your Reels with the pinned caption below.',
+          date: 'Today',
+          timestamp: '12:05 PM',
+          isPostable: true,
+          postingStatus: 'pending',
           isRead: true
         }
       ]
@@ -635,31 +767,41 @@ const DEMO_CONVERSATIONS: Conversation[] = [
     }
   ];
 
+const marketerAssignedConversation = (userId: string, convId: string, marketerName: string): Conversation => ({
+  ...DEMO_CONVERSATIONS[0],
+  id: convId,
+  userId,
+  senderId: 'user-admin',
+  senderName: 'Alfa Operations Admin',
+  senderRole: 'Corporate Operations',
+  senderCompany: 'MarketPulse Operations',
+  messages: DEMO_CONVERSATIONS[0].messages.map((m) => ({
+    ...m,
+    conversationId: convId,
+    ...(m.senderId === 'contact-raphael'
+      ? { senderId: userId, senderName: marketerName }
+      : { senderId: 'user-admin', senderName: 'Admin' })
+  }))
+});
+
 export const INITIAL_CONVERSATIONS: Record<string, Conversation[]> = {
   'user-admin': DEMO_CONVERSATIONS.map((c) => ({
     ...c,
     userId: 'user-admin'
   })),
   'user-marketer': [
-    // Marketer account has their own assigned conversation
-    {
-      ...DEMO_CONVERSATIONS[0],
-      id: 'conv-marketer-assigned',
-      userId: 'user-marketer',
-      senderId: 'user-admin',
-      senderName: 'Alfa Operations Admin',
-      senderRole: 'Corporate Operations',
-      senderCompany: 'MarketPulse Operations',
-      messages: DEMO_CONVERSATIONS[0].messages.map((m) => ({
-        ...m,
-        conversationId: 'conv-marketer-assigned',
-        ...(m.senderId === 'contact-raphael'
-          ? { senderId: 'user-marketer', senderName: 'Raphael Rivera Berríos' }
-          : { senderId: 'user-admin', senderName: 'Admin' })
-      }))
-    }
+    marketerAssignedConversation(
+      'user-marketer',
+      'conv-marketer-assigned',
+      'Raphael Rivera Berríos'
+    )
+  ],
+  'user-tour': [
+    marketerAssignedConversation('user-tour', 'conv-tour-assigned', 'Taylor Tour')
   ]
 };
+
+const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000).toISOString();
 
 const DEMO_NOTIFICATIONS: NotificationItem[] = [
   {
@@ -668,7 +810,8 @@ const DEMO_NOTIFICATIONS: NotificationItem[] = [
     type: 'content_required',
     title: 'Action Required: 3 New Flyers',
     description: 'Raphael delivered Weekly Social Media Creatives awaiting posting decision.',
-    timestamp: '10:52 PM',
+    timestamp: 'Today · 10:52 PM',
+    createdAt: hoursAgo(2),
     read: false,
     conversationId: 'conv-raphael-ali',
     messageId: 'msg-demo-3'
@@ -677,9 +820,10 @@ const DEMO_NOTIFICATIONS: NotificationItem[] = [
     id: 'notif-2',
     userId: 'user-admin',
     type: 'not_posted',
-    title: 'Content Marked Not Posted',
-    description: 'Webinar announcement banner marked Not Posted (Approval Pending).',
-    timestamp: '10:58 PM',
+    title: 'Marked Need Revision',
+    description: 'Webinar announcement banner marked Need Revision (Approval Pending).',
+    timestamp: 'Today · 10:58 PM',
+    createdAt: hoursAgo(1.5),
     read: false,
     conversationId: 'conv-raphael-ali',
     messageId: 'msg-demo-5'
@@ -690,7 +834,8 @@ const DEMO_NOTIFICATIONS: NotificationItem[] = [
     type: 'posted',
     title: 'Content Verified as Posted',
     description: 'Flash Promo - Special Edition marked as Posted.',
-    timestamp: '09:15 AM',
+    timestamp: 'Today · 09:15 AM',
+    createdAt: hoursAgo(8),
     read: true,
     conversationId: 'conv-raphael-ali',
     messageId: 'msg-demo-4'
@@ -701,7 +846,8 @@ const DEMO_NOTIFICATIONS: NotificationItem[] = [
     type: 'content_required',
     title: 'Action Required: VIP Early Access Flyer',
     description: 'Sarah delivered VIP Early Access Flyer awaiting posting decision.',
-    timestamp: 'Yesterday at 04:40 PM',
+    timestamp: 'Yesterday · 04:40 PM',
+    createdAt: hoursAgo(28),
     read: false,
     conversationId: 'conv-sarah-ali',
     messageId: 'msg-sarah-4'
@@ -712,16 +858,72 @@ export const INITIAL_NOTIFICATIONS: Record<string, NotificationItem[]> = {
   'user-admin': DEMO_NOTIFICATIONS,
   'user-marketer': [
     {
-      ...DEMO_NOTIFICATIONS[0],
       id: 'notif-marketer-1',
       userId: 'user-marketer',
+      type: 'new_message',
+      title: 'New content from Admin',
+      description: 'Weekly Social Media Creatives — 3 flyers ready to review and post.',
+      timestamp: 'Today · 10:52 PM',
+      createdAt: hoursAgo(2),
+      read: false,
+      conversationId: 'conv-marketer-assigned',
+      messageId: 'msg-demo-3'
+    },
+    {
+      id: 'notif-marketer-2',
+      userId: 'user-marketer',
+      type: 'message_update',
+      title: 'Message updated',
+      description: 'Admin revised caption copy on an earlier deliverable. Open Chats to review.',
+      timestamp: 'Today · 09:10 AM',
+      createdAt: hoursAgo(6),
+      read: false,
       conversationId: 'conv-marketer-assigned'
     },
     {
-      ...DEMO_NOTIFICATIONS[1],
-      id: 'notif-marketer-2',
+      id: 'notif-marketer-3',
       userId: 'user-marketer',
-      conversationId: 'conv-marketer-assigned'
+      type: 'lead_update',
+      title: 'Lead status updated',
+      description: 'Maria Lopez moved to In Progress by operations.',
+      timestamp: 'Yesterday · 02:20 PM',
+      createdAt: hoursAgo(30),
+      read: true,
+      leadId: 'lead-2'
+    },
+    {
+      id: 'notif-marketer-4',
+      userId: 'user-marketer',
+      type: 'team_application',
+      title: 'Team member registered',
+      description: 'A marketer joined using your referral. Track them under Referrals.',
+      timestamp: '2 days ago · 11:00 AM',
+      createdAt: hoursAgo(50),
+      read: true
+    }
+  ],
+  'user-tour': [
+    {
+      id: 'notif-tour-1',
+      userId: 'user-tour',
+      type: 'new_message',
+      title: 'New flyers for Tour',
+      description: 'Admin sent Weekly Social Media Creatives — try Mark as Posted on the tour.',
+      timestamp: 'Today · 10:00 AM',
+      createdAt: hoursAgo(3),
+      read: false,
+      conversationId: 'conv-tour-assigned'
+    },
+    {
+      id: 'notif-tour-2',
+      userId: 'user-tour',
+      type: 'lead_update',
+      title: 'Lead update',
+      description: 'Alex Rivera is marked New — open Leads to manage.',
+      timestamp: 'Today · 08:30 AM',
+      createdAt: hoursAgo(5),
+      read: true,
+      leadId: 'lead-tour-1'
     }
   ]
 };
@@ -736,7 +938,9 @@ export const INITIAL_LEADS: Lead[] = [
     notes: 'Rear-end collision on I-5. Interested in free consultation.',
     createdByUserId: 'user-marketer',
     createdByName: 'Raphael Rivera Berríos',
-    createdAt: '2026-10-11T16:20:00Z'
+    // Recent — still editable for marketer (< 24h)
+    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    submissionStatus: 'new'
   },
   {
     id: 'lead-2',
@@ -747,6 +951,32 @@ export const INITIAL_LEADS: Lead[] = [
     notes: 'Fell at grocery store. Looking for Spanish-speaking attorney.',
     createdByUserId: 'user-marketer',
     createdByName: 'Raphael Rivera Berríos',
-    createdAt: '2026-10-12T09:45:00Z'
+    // Older than 24h — locked for marketer edit/delete
+    createdAt: '2026-10-12T09:45:00Z',
+    submissionStatus: 'in_progress'
+  },
+  {
+    id: 'lead-3',
+    fullName: 'Omar Hassan',
+    phone: '+1 (555) 310-7790',
+    email: 'omar.hassan@email.com',
+    accidentType: 'work_injury',
+    notes: 'Warehouse injury — admin rejected incomplete contact info.',
+    createdByUserId: 'user-marketer',
+    createdByName: 'Raphael Rivera Berríos',
+    createdAt: '2026-11-01T14:00:00Z',
+    submissionStatus: 'rejected'
+  },
+  {
+    id: 'lead-tour-1',
+    fullName: 'Alex Rivera',
+    phone: '+1 (555) 100-3000',
+    email: 'alex.rivera@email.com',
+    accidentType: 'car_accident',
+    notes: 'Sample lead for Quick Tour testing.',
+    createdByUserId: 'user-tour',
+    createdByName: 'Taylor Tour',
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    submissionStatus: 'new'
   }
 ];

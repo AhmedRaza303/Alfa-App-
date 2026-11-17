@@ -13,7 +13,12 @@ import {
 } from 'lucide-react';
 import { ActiveTab } from '../../types';
 
-export const BottomNav: React.FC = () => {
+interface BottomNavProps {
+  /** Raise above Quick Tour overlay so Leads/Alerts tabs stay tappable */
+  elevateForTour?: boolean;
+}
+
+export const BottomNav: React.FC<BottomNavProps> = ({ elevateForTour = false }) => {
   const {
     activeTab,
     setActiveTab,
@@ -99,14 +104,21 @@ export const BottomNav: React.FC = () => {
   const cols = isAdmin ? 7 : isMarketer ? 6 : 4;
 
   return (
-    <nav className="relative z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 shrink-0">
+    <nav
+      className={`relative bg-white/95 backdrop-blur-md border-t border-slate-200 shrink-0 ${
+        elevateForTour ? 'z-[70]' : 'z-30'
+      }`}
+    >
       <div className={`max-w-md mx-auto grid grid-cols-${cols} h-14 px-0.5 sm:px-1`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {navItems.map((item) => {
-          const isActive = activeTab === item.tab;
+          const isActive =
+            activeTab === item.tab ||
+            (item.tab === 'bulk_sender' && activeTab === 'content_calendar');
           return (
             <button
               key={item.tab}
               type="button"
+              data-tour={`nav-${item.tab}`}
               onClick={() => {
                 if (item.tab === 'conversations') {
                   if (

@@ -241,7 +241,7 @@ export const ConversationListView: React.FC = () => {
                         {counts.notPosted > 0 && (
                           <span className="inline-flex items-center gap-1 font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/70">
                             <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
-                            {counts.notPosted} Not Posted
+                            {counts.notPosted} Need Revision
                           </span>
                         )}
 

@@ -16,8 +16,10 @@ import {
   Percent,
   SendHorizontal,
   UserPlus,
-  ClipboardList
+  ClipboardList,
+  CalendarDays
 } from 'lucide-react';
+import { AdminReferralTree } from './AdminReferralTree';
 
 type ReasonCount = { reason: string; count: number };
 type MarketerStat = {
@@ -248,6 +250,14 @@ export const AnalyticsDashboardView: React.FC = () => {
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
+                onClick={() => setActiveTab('content_calendar')}
+                className="p-2 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-100 cursor-pointer"
+                title="Content Calendar"
+              >
+                <CalendarDays className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('bulk_sender')}
                 className="p-2 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 cursor-pointer"
                 title="Bulk Sender"
@@ -291,7 +301,7 @@ export const AnalyticsDashboardView: React.FC = () => {
               tone="amber"
             />
             <KpiCard
-              label="Not posted"
+              label="Need Revision"
               value={stats.notPosted}
               icon={<AlertTriangle className="w-4 h-4" />}
               tone="rose"
@@ -345,11 +355,14 @@ export const AnalyticsDashboardView: React.FC = () => {
             </div>
             <div className="flex flex-wrap gap-3 mt-2 text-[10px] font-semibold text-slate-500">
               <LegendDot color="bg-emerald-500" label={`Posted ${stats.posted}`} />
-              <LegendDot color="bg-rose-400" label={`Not posted ${stats.notPosted}`} />
+              <LegendDot color="bg-rose-400" label={`Need Revision ${stats.notPosted}`} />
               <LegendDot color="bg-amber-400" label={`Pending ${stats.pending}`} />
             </div>
           </div>
         </div>
+
+        {/* Admin referral network map */}
+        <AdminReferralTree />
 
         {/* Leads */}
         <section className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">

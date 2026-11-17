@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { EditProfileModal } from './EditProfileModal';
-import { WelcomeTourModal } from '../onboarding/WelcomeTourModal';
 import { getFlyerCategoryLabel } from '../../utils/flyerCategories';
 import {
   User,
@@ -23,10 +22,9 @@ import {
 } from 'lucide-react';
 
 export const ProfileView: React.FC = () => {
-  const { currentUser, logout, showToast, setActiveTab, language, t } = useApp();
+  const { currentUser, logout, showToast, setActiveTab, language, t, reopenPageTour } = useApp();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
-  const [replayTourOpen, setReplayTourOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [pwdError, setPwdError] = useState<string | null>(null);
@@ -133,7 +131,7 @@ export const ProfileView: React.FC = () => {
           {currentUser.role === 'Marketer' && (
             <button
               type="button"
-              onClick={() => setReplayTourOpen(true)}
+              onClick={() => reopenPageTour('conversations')}
               className="w-full bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex items-center gap-3 text-left hover:bg-slate-50 transition-colors cursor-pointer"
             >
               <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center shrink-0">
@@ -142,7 +140,7 @@ export const ProfileView: React.FC = () => {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-slate-900">{t.replayTour}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Walk through the app again
+                  Replay Chats tips — open other tabs once for their first-visit tour
                 </p>
               </div>
             </button>
@@ -256,12 +254,6 @@ export const ProfileView: React.FC = () => {
       <EditProfileModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-      />
-
-      <WelcomeTourModal
-        isOpen={replayTourOpen}
-        isReplay
-        onClose={() => setReplayTourOpen(false)}
       />
 
       {/* Change Password Modal */}

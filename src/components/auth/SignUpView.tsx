@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Shield,
@@ -14,7 +14,8 @@ import {
   Instagram,
   Eye,
   EyeOff,
-  Check
+  Check,
+  Hash
 } from 'lucide-react';
 import { LanguageSelector } from '../common/LanguageSelector';
 import {
@@ -65,9 +66,22 @@ export const SignUpView: React.FC = () => {
     t,
     language,
     pendingReferralCode,
+    setPendingReferralCode,
     findReferrerByCode
   } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [referralCodeInput, setReferralCodeInput] = useState(pendingReferralCode || '');
+  /** True when code arrived via ?ref= link (still editable if user wants to change) */
+  const [codeFromLink, setCodeFromLink] = useState(Boolean(pendingReferralCode));
+
+  // Keep field in sync when invite link sets pending code after mount
+  useEffect(() => {
+    if (pendingReferralCode) {
+      setReferralCodeInput(pendingReferralCode);
+      setCodeFromLink(true);
+    }
+  }, [pendingReferralCode]);
 
   const referrer = useMemo(
     () => (pendingReferralCode ? findReferrerByCode(pendingReferralCode) : undefined),
@@ -282,6 +296,7 @@ export const SignUpView: React.FC = () => {
       postalCode: sanitizePostalCode(postalCode),
       registeredAt: new Date().toISOString(),
       hasCompletedTour: false,
+      completedTourPages: [],
       referredByUserId: referrer?.id
     });
 
@@ -497,6 +512,43 @@ export const SignUpView: React.FC = () => {
                 />
               </div>
               <FieldHint errorMsg={fieldErrors.name} />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
+                Referral code{' '}
+                <span className="text-slate-400 font-medium normal-case">(optional)</span>
+              </label>
+              <div className="relative">
+                <Hash className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={referralCodeInput}
+                  onChange={(e) => {
+                    const raw = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    setReferralCodeInput(raw);
+                    setCodeFromLink(false);
+                    setPendingReferralCode(raw || null);
+                  }}
+                  placeholder="e.g. RAPHAEL01"
+                  className={`${inputBase} pl-10 pr-3.5 ${inputOk} tracking-wider font-semibold`}
+                  autoComplete="off"
+                />
+              </div>
+              {referrer ? (
+                <p className="mt-1 text-[11px] font-semibold text-emerald-700">
+                  {codeFromLink ? 'Invite link applied · ' : 'Linked to '}
+                  {referrer.name}
+                </p>
+              ) : referralCodeInput ? (
+                <p className="mt-1 text-[11px] font-semibold text-amber-700">
+                  Code not found — you can still continue or fix the code
+                </p>
+              ) : (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Paste a code here, or open an invite link (`?ref=CODE`) — both work
+                </p>
+              )}
             </div>
 
             <div>

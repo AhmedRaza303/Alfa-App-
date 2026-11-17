@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { TourPage, TOUR_PAGES } from '../../types';
 import { Header } from '../navigation/Header';
 import { BottomNav } from '../navigation/BottomNav';
 import { ConversationListView } from '../conversations/ConversationListView';
@@ -7,6 +8,7 @@ import { ConversationDetailView } from '../conversations/ConversationDetailView'
 import { NotificationsView } from '../notifications/NotificationsView';
 import { ProfileView } from '../profile/ProfileView';
 import { BulkContentSenderView } from '../bulk/BulkContentSenderView';
+import { ContentCalendarView } from '../admin/ContentCalendarView';
 import { MarketerRequestsView } from '../admin/MarketerRequestsView';
 import { AnalyticsDashboardView } from '../admin/AnalyticsDashboardView';
 import { PerformanceHistoryView } from '../marketer/PerformanceHistoryView';
@@ -15,28 +17,122 @@ import { LeadsView } from '../leads/LeadsView';
 import { HelpView } from '../help/HelpView';
 import { WelcomeTourModal } from '../onboarding/WelcomeTourModal';
 import { NotPostedModal } from '../modals/NotPostedModal';
+import { LanguageRequestModal } from '../modals/LanguageRequestModal';
 import { ImageViewerModal } from '../conversations/ImageViewerModal';
 import { Toast } from '../common/Toast';
 import { ShellLayoutProvider, DeviceMode } from '../../context/ShellLayoutContext';
 import { Smartphone, Monitor } from 'lucide-react';
 
+function isTourPage(tab: string): tab is TourPage {
+  return (TOUR_PAGES as string[]).includes(tab);
+}
+
 export const AppShell: React.FC = () => {
-  const { activeTab, activeConversationId, activeConversation, currentUser } = useApp();
+  const {
+    activeTab,
+    activeConversationId,
+    activeConversation,
+    currentUser,
+    tourReplayToken,
+    completePageTour
+  } = useApp();
   const [deviceMode, setDeviceMode] = useState<DeviceMode>('mobile');
   const [welcomeTourOpen, setWelcomeTourOpen] = useState(false);
+  const [tourPage, setTourPage] = useState<TourPage>('conversations');
+  const [tourIsReplay, setTourIsReplay] = useState(false);
+  /** Demo user: pages finished this login so switching tabs doesn't re-loop */
+  const sessionSeenRef = useRef<Set<TourPage>>(new Set());
+  const lastUserIdRef = useRef<string | null>(null);
+  const lastReplayTokenRef = useRef(0);
 
   const isMarketer = currentUser?.role === 'Marketer';
   const isAdmin = currentUser?.role === 'Admin';
 
   useEffect(() => {
-    if (
-      isMarketer &&
-      currentUser?.approvalStatus === 'approved' &&
-      !currentUser.hasCompletedTour
-    ) {
+    if (currentUser?.id !== lastUserIdRef.current) {
+      sessionSeenRef.current = new Set();
+      lastUserIdRef.current = currentUser?.id ?? null;
+    }
+  }, [currentUser?.id]);
+
+  // Help/Profile replay: force-open current tab's tour
+  useEffect(() => {
+    if (!tourReplayToken || tourReplayToken === lastReplayTokenRef.current) return;
+    lastReplayTokenRef.current = tourReplayToken;
+    if (!isMarketer || !isTourPage(activeTab)) return;
+    sessionSeenRef.current.delete(activeTab);
+    setTourPage(activeTab);
+    setTourIsReplay(true);
+    setWelcomeTourOpen(true);
+  }, [tourReplayToken, activeTab, isMarketer]);
+
+  // If user switches tabs mid-tour, move the coach-mark to that page
+  useEffect(() => {
+    if (!welcomeTourOpen || !isTourPage(activeTab)) return;
+    if (activeTab === tourPage) return;
+    if (currentUser?.isTourDemo) {
+      sessionSeenRef.current.add(tourPage);
+    } else {
+      completePageTour(tourPage);
+    }
+    setTourPage(activeTab);
+    setTourIsReplay(false);
+  }, [
+    activeTab,
+    welcomeTourOpen,
+    tourPage,
+    currentUser?.isTourDemo,
+    completePageTour
+  ]);
+
+  // Open only the current page's tour on first visit (not all pages at once)
+  useEffect(() => {
+    if (!isMarketer || currentUser?.approvalStatus !== 'approved') return;
+    if (!isTourPage(activeTab)) return;
+
+    const page = activeTab;
+    const done = (currentUser.completedTourPages || []).includes(page);
+
+    if (welcomeTourOpen) {
+      // Already showing — keep in sync with active tab
+      if (tourPage !== page) {
+        setTourPage(page);
+        setTourIsReplay(false);
+      }
+      return;
+    }
+
+    if (currentUser.isTourDemo) {
+      if (sessionSeenRef.current.has(page)) return;
+      setTourPage(page);
+      setTourIsReplay(false);
+      setWelcomeTourOpen(true);
+      return;
+    }
+
+    if (!done) {
+      setTourPage(page);
+      setTourIsReplay(false);
       setWelcomeTourOpen(true);
     }
-  }, [isMarketer, currentUser?.approvalStatus, currentUser?.hasCompletedTour, currentUser?.id]);
+  }, [
+    isMarketer,
+    activeTab,
+    currentUser?.approvalStatus,
+    currentUser?.completedTourPages,
+    currentUser?.isTourDemo,
+    currentUser?.id,
+    welcomeTourOpen,
+    tourPage
+  ]);
+
+  const handleTourClose = () => {
+    if (currentUser?.isTourDemo) {
+      sessionSeenRef.current.add(tourPage);
+    }
+    setTourIsReplay(false);
+    setWelcomeTourOpen(false);
+  };
 
   const renderActiveScreen = () => {
     switch (activeTab) {
@@ -50,6 +146,9 @@ export const AppShell: React.FC = () => {
         return isMarketer ? <ConversationDetailView /> : <ConversationListView />;
       case 'bulk_sender':
         if (isAdmin) return <BulkContentSenderView />;
+        return isMarketer ? <ConversationDetailView /> : <ConversationListView />;
+      case 'content_calendar':
+        if (isAdmin) return <ContentCalendarView />;
         return isMarketer ? <ConversationDetailView /> : <ConversationListView />;
       case 'analytics':
         if (isAdmin) return <AnalyticsDashboardView />;
@@ -84,10 +183,13 @@ export const AppShell: React.FC = () => {
 
       {/* Global Modals */}
       <NotPostedModal />
+      <LanguageRequestModal />
       <ImageViewerModal />
       <WelcomeTourModal
         isOpen={welcomeTourOpen}
-        onClose={() => setWelcomeTourOpen(false)}
+        page={tourPage}
+        isReplay={tourIsReplay}
+        onClose={handleTourClose}
       />
 
       {/* Responsive Viewport Switcher (Desktop Preview Bar) */}
@@ -149,7 +251,7 @@ export const AppShell: React.FC = () => {
           </main>
 
           {/* Bottom Tab Navigation */}
-          <BottomNav />
+          <BottomNav elevateForTour={welcomeTourOpen} />
         </div>
       </ShellLayoutProvider>
     </div>

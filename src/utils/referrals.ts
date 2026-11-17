@@ -1,4 +1,8 @@
-import { User } from '../types';
+import {
+  ReferralDownlineEntry,
+  ReferralNetworkSummary,
+  User
+} from '../types';
 
 const REF_STORAGE_KEY = 'marketpulse_pending_ref_v1';
 
@@ -109,4 +113,84 @@ export function buildReferralTree(users: User[], rootId: string): ReferralNode |
   };
 
   return build(rootId);
+}
+
+/**
+ * All referral roots for admin overview:
+ * marketers with no referrer, or whose referrer is missing from the user list.
+ */
+export function buildReferralForest(users: User[]): ReferralNode[] {
+  const marketers = users.filter((u) => u.role === 'Marketer');
+  const ids = new Set(marketers.map((u) => u.id));
+  const roots = marketers.filter(
+    (u) => !u.referredByUserId || !ids.has(u.referredByUserId)
+  );
+  return roots
+    .map((r) => buildReferralTree(users, r.id))
+    .filter((n): n is ReferralNode => Boolean(n))
+    .sort((a, b) => b.totalCount - a.totalCount || a.user.name.localeCompare(b.user.name));
+}
+
+export function countReferralEdges(users: User[]): number {
+  const ids = new Set(users.filter((u) => u.role === 'Marketer').map((u) => u.id));
+  return users.filter(
+    (u) =>
+      u.role === 'Marketer' &&
+      Boolean(u.referredByUserId) &&
+      ids.has(u.referredByUserId!)
+  ).length;
+}
+
+/**
+ * Flatten a marketer's downline into direct + indirect rows
+ * (depth 1 = direct; depth 2+ = indirect). Sorted newest first.
+ */
+export function getReferralDownline(
+  users: User[],
+  marketerId: string
+): ReferralDownlineEntry[] {
+  const byId = new Map(users.map((u) => [u.id, u]));
+  const entries: ReferralDownlineEntry[] = [];
+
+  const walk = (parentId: string, depth: number) => {
+    const kids = getDirectReferrals(users, parentId);
+    const parent = byId.get(parentId);
+    for (const kid of kids) {
+      entries.push({
+        user: kid,
+        relation: depth === 1 ? 'direct' : 'indirect',
+        depth,
+        referredByUserId: parentId,
+        referredByName: parent?.name || 'Unknown'
+      });
+      walk(kid.id, depth + 1);
+    }
+  };
+
+  walk(marketerId, 1);
+
+  return entries.sort((a, b) => {
+    const ta = new Date(a.user.registeredAt || 0).getTime();
+    const tb = new Date(b.user.registeredAt || 0).getTime();
+    return tb - ta;
+  });
+}
+
+export function getReferralNetworkSummary(
+  users: User[],
+  marketerId: string
+): ReferralNetworkSummary {
+  const downline = getReferralDownline(users, marketerId);
+  const directCount = downline.filter((d) => d.relation === 'direct').length;
+  const indirectCount = downline.filter((d) => d.relation === 'indirect').length;
+  const totalReferralPoints = downline.reduce(
+    (sum, d) => sum + (d.user.referralPoints || 0),
+    0
+  );
+  return {
+    directCount,
+    indirectCount,
+    totalNetwork: directCount + indirectCount,
+    totalReferralPoints
+  };
 }

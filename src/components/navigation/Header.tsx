@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { ShieldCheck, BarChart3, HelpCircle } from 'lucide-react';
+import { ShieldCheck, BarChart3, HelpCircle, CalendarDays } from 'lucide-react';
 
 interface HeaderProps {
   title?: string;
@@ -19,6 +19,8 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         return 'Marketer Requests';
       case 'bulk_sender':
         return 'Bulk Content Sender';
+      case 'content_calendar':
+        return 'Content Calendar';
       case 'analytics':
         return 'Analytics';
       case 'performance':
@@ -48,12 +50,14 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         return 'Review pending signups — approve or reject marketers';
       case 'bulk_sender':
         return 'Broadcast flyers & distribute personalized deliverables';
+      case 'content_calendar':
+        return 'Schedule flyers for later send';
       case 'analytics':
-        return 'Posting performance, content mix & marketer leaderboard';
+        return 'Performance, referral tree & marketer leaderboard';
       case 'performance':
         return 'Your posting stats, streak & creative history';
       case 'referrals':
-        return 'Share your link & grow your marketer network';
+        return 'Invite marketers · network & downline';
       case 'leads':
         return isAdmin
           ? 'View-only — all marketer leads'
@@ -95,6 +99,16 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {isAdmin && activeTab !== 'content_calendar' && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('content_calendar')}
+              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-200 flex items-center justify-center transition-colors cursor-pointer"
+              title="Content Calendar"
+            >
+              <CalendarDays className="w-4 h-4" />
+            </button>
+          )}
           {isAdmin && activeTab !== 'analytics' && (
             <button
               type="button"

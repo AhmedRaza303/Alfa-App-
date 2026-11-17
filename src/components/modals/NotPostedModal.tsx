@@ -50,10 +50,12 @@ export const NotPostedModal: React.FC = () => {
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900">
-                Why wasn't this posted?
+                Need Revision
               </h2>
               <p className="text-xs text-slate-500">
-                {notPostedModal.campaignName ? notPostedModal.campaignName : 'Select reason and provide comments'}
+                {notPostedModal.campaignName
+                  ? notPostedModal.campaignName
+                  : 'Select a reason and add comments'}
               </p>
             </div>
           </div>
@@ -112,7 +114,7 @@ export const NotPostedModal: React.FC = () => {
               rows={3}
               value={comments}
               onChange={(e) => setComments(e.target.value)}
-              placeholder="Add comments or explain why this was not posted..."
+              placeholder="Add comments or explain what needs revision..."
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow resize-none"
             />
           </div>

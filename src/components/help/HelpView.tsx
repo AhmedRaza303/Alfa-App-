@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useShellLayout } from '../../context/ShellLayoutContext';
-import { WelcomeTourModal } from '../onboarding/WelcomeTourModal';
 import {
   HelpCircle,
   ChevronDown,
@@ -23,10 +22,9 @@ type FaqItem = {
 };
 
 export const HelpView: React.FC = () => {
-  const { currentUser, t, setActiveTab } = useApp();
+  const { currentUser, t, setActiveTab, reopenPageTour } = useApp();
   const { isExpandedShell } = useShellLayout();
   const [openId, setOpenId] = useState<string | null>('faq-1');
-  const [replayTourOpen, setReplayTourOpen] = useState(false);
   const isAdmin = currentUser?.role === 'Admin';
   const isMarketer = currentUser?.role === 'Marketer';
 
@@ -94,7 +92,7 @@ export const HelpView: React.FC = () => {
       {
         id: 'faq-5',
         q: 'Can I replay the welcome tour?',
-        a: 'Yes. Tap Replay tour on this Help screen (or from Profile) anytime to walk through chats, creatives, posting actions, copy, notifications, and profile again.',
+        a: 'Yes. Replay opens the Chats page tips again. Each tab (Leads, Stats, Referrals, Alerts) also shows its own short tour the first time you open it.',
         Icon: HelpCircle
       }
     ];
@@ -122,7 +120,7 @@ export const HelpView: React.FC = () => {
           {isMarketer && (
             <button
               type="button"
-              onClick={() => setReplayTourOpen(true)}
+              onClick={() => reopenPageTour('conversations')}
               className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -215,11 +213,6 @@ export const HelpView: React.FC = () => {
         </section>
       </div>
 
-      <WelcomeTourModal
-        isOpen={replayTourOpen}
-        isReplay
-        onClose={() => setReplayTourOpen(false)}
-      />
     </div>
   );
 };

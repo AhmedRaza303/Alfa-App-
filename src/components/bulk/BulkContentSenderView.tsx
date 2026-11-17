@@ -23,10 +23,31 @@ import {
   FileText,
   Radio,
   ArrowRight,
-  MessageSquare
+  MessageSquare,
+  Video,
+  CalendarDays,
+  CalendarClock
 } from 'lucide-react';
 import { ContentCategory } from '../../types';
 import { useShellLayout } from '../../context/ShellLayoutContext';
+import {
+  FLYER_MAX_IMAGES,
+  PERSONALIZED_MAX_IMAGES,
+  PERSONALIZED_MAX_VIDEOS
+} from '../../utils/mediaStorage';
+
+/** Local datetime-local value, default +1 hour from now (rounded to next 5 min). */
+function defaultScheduleLocalValue(): string {
+  const d = new Date(Date.now() + 60 * 60 * 1000);
+  d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function localInputToIso(localValue: string): string {
+  const d = new Date(localValue);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+}
 
 // Common business and marketing emojis
 const MARKETING_EMOJIS = [
@@ -41,6 +62,8 @@ export const BulkContentSenderView: React.FC = () => {
     currentUser,
     conversations,
     sendBulkMessage,
+    scheduleBulkSend,
+    upcomingScheduledCount,
     setActiveTab,
     showToast
   } = useApp();
@@ -58,13 +81,17 @@ export const BulkContentSenderView: React.FC = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
 
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [attachedVideos, setAttachedVideos] = useState<string[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState<boolean>(false);
+  const [scheduleAt, setScheduleAt] = useState<string>(() => defaultScheduleLocalValue());
+  const [showSchedulePanel, setShowSchedulePanel] = useState<boolean>(false);
 
   // Phone-shell tab switcher: composer | preview (tablet shows both)
   const [mobileTab, setMobileTab] = useState<'composer' | 'preview'>('composer');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -184,20 +211,23 @@ export const BulkContentSenderView: React.FC = () => {
     setShowEmojiPicker(false);
   };
 
-  // Image attachment handler (max 3 images, 8MB each)
+  const maxImages =
+    contentType === 'personalized' ? PERSONALIZED_MAX_IMAGES : FLYER_MAX_IMAGES;
+
+  // Image attachment handler (object URLs — avoids localStorage quota)
   const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setAttachError(null);
 
     const fileList = Array.from(files);
-    if (attachedImages.length + fileList.length > 3) {
-      setAttachError('Maximum 3 image attachments allowed per campaign deliverable.');
+    if (attachedImages.length + fileList.length > maxImages) {
+      setAttachError(`Maximum ${maxImages} image attachments allowed.`);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    const readers: Promise<string>[] = [];
+    const objectUrls: string[] = [];
     for (const file of fileList) {
       if (!file.type.startsWith('image/')) {
         setAttachError('Only image formats (JPEG, PNG, WebP) are supported.');
@@ -205,48 +235,108 @@ export const BulkContentSenderView: React.FC = () => {
         return;
       }
       if (file.size > 8 * 1024 * 1024) {
-        setAttachError('Each flyer image must be under 8MB.');
+        setAttachError('Each image must be under 8MB.');
         if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
-
-      readers.push(
-        new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (event) => resolve(event.target?.result as string);
-          reader.readAsDataURL(file);
-        })
-      );
+      objectUrls.push(URL.createObjectURL(file));
     }
 
-    Promise.all(readers).then((newImages) => {
-      setAttachedImages((prev) => [...prev, ...newImages].slice(0, 3));
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    });
+    setAttachedImages((prev) => [...prev, ...objectUrls].slice(0, maxImages));
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleRemoveImage = (index: number) => {
-    setAttachedImages((prev) => prev.filter((_, idx) => idx !== index));
+    setAttachedImages((prev) => {
+      const removed = prev[index];
+      if (removed?.startsWith('blob:')) URL.revokeObjectURL(removed);
+      return prev.filter((_, idx) => idx !== index);
+    });
     setAttachError(null);
   };
 
-  // Reset draft
-  const handleClearDraft = () => {
-    setTitle('');
-    setMessageText('');
-    setAttachedImages([]);
+  const handleVideoAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     setAttachError(null);
-    setIsAllMarketers(true);
-    setSelectedConversationIds([]);
-    showToast('Draft cleared', 'info');
+
+    const fileList = Array.from(files);
+    if (attachedVideos.length + fileList.length > PERSONALIZED_MAX_VIDEOS) {
+      setAttachError(`Maximum ${PERSONALIZED_MAX_VIDEOS} videos allowed for Personalized.`);
+      if (videoInputRef.current) videoInputRef.current.value = '';
+      return;
+    }
+
+    const objectUrls: string[] = [];
+    for (const file of fileList) {
+      if (!file.type.startsWith('video/')) {
+        setAttachError('Only video files (MP4, WebM) are supported for Personalized.');
+        if (videoInputRef.current) videoInputRef.current.value = '';
+        return;
+      }
+      if (file.size > 25 * 1024 * 1024) {
+        setAttachError('Each video must be under 25MB.');
+        if (videoInputRef.current) videoInputRef.current.value = '';
+        return;
+      }
+      objectUrls.push(URL.createObjectURL(file));
+    }
+
+    setAttachedVideos((prev) =>
+      [...prev, ...objectUrls].slice(0, PERSONALIZED_MAX_VIDEOS)
+    );
+    if (videoInputRef.current) videoInputRef.current.value = '';
+  };
+
+  const handleRemoveVideo = (index: number) => {
+    setAttachedVideos((prev) => {
+      const removed = prev[index];
+      if (removed?.startsWith('blob:')) URL.revokeObjectURL(removed);
+      return prev.filter((_, idx) => idx !== index);
+    });
+    setAttachError(null);
   };
 
   // Validation
   const hasContent = Boolean(
-    title.trim() || messageText.trim() || attachedImages.length > 0
+    title.trim() ||
+      messageText.trim() ||
+      attachedImages.length > 0 ||
+      attachedVideos.length > 0
   );
   const hasRecipients = resolvedRecipients.length > 0;
   const canSend = hasContent && hasRecipients && !isSending;
+
+  const recipientLabel = isAllMarketers
+    ? `All marketers (${marketerList.length})`
+    : resolvedRecipients.length === 1
+      ? resolvedRecipients[0]?.name || '1 marketer'
+      : `${resolvedRecipients.length} marketers`;
+
+  const clearComposeForm = () => {
+    attachedImages.forEach((img) => {
+      if (img.startsWith('blob:')) URL.revokeObjectURL(img);
+    });
+    attachedVideos.forEach((vid) => {
+      if (vid.startsWith('blob:')) URL.revokeObjectURL(vid);
+    });
+    setTitle('');
+    setMessageText('');
+    setAttachedImages([]);
+    setAttachedVideos([]);
+    setAttachError(null);
+    setIsAllMarketers(true);
+    setSelectedConversationIds([]);
+    setScheduleAt(defaultScheduleLocalValue());
+    setShowSchedulePanel(false);
+    setMobileTab('composer');
+  };
+
+  // Reset draft
+  const handleClearDraft = () => {
+    clearComposeForm();
+    showToast('Draft cleared', 'info');
+  };
 
   // Send content handler
   const handleSend = () => {
@@ -262,20 +352,42 @@ export const BulkContentSenderView: React.FC = () => {
       title: title.trim(),
       text: messageText.trim(),
       images: attachedImages,
+      videos: contentType === 'personalized' ? attachedVideos : undefined,
       recipientConversationIds: recipientIds
     });
 
     if (result.success) {
-      setTitle('');
-      setMessageText('');
-      setAttachedImages([]);
-      setAttachError(null);
-      setIsAllMarketers(true);
-      setSelectedConversationIds([]);
-      setMobileTab('composer');
+      clearComposeForm();
     }
 
     setIsSending(false);
+  };
+
+  const handleSchedule = () => {
+    if (!canSend) return;
+    const iso = localInputToIso(scheduleAt);
+    if (!iso) {
+      showToast('Pick a valid date and time', 'error');
+      return;
+    }
+
+    const result = scheduleBulkSend({
+      category: contentType,
+      title: title.trim(),
+      text: messageText.trim(),
+      images: attachedImages,
+      videos: contentType === 'personalized' ? attachedVideos : undefined,
+      recipientConversationIds: isAllMarketers ? ['all'] : selectedConversationIds,
+      recipientLabel,
+      scheduledFor: iso
+    });
+
+    if (result.success) {
+      clearComposeForm();
+      setActiveTab('content_calendar');
+    } else if (result.message) {
+      showToast(result.message, 'error');
+    }
   };
 
   // Effective preview title and recipient label
@@ -331,14 +443,30 @@ export const BulkContentSenderView: React.FC = () => {
                 </span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setActiveTab('conversations')}
-              className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1 shrink-0"
-            >
-              <span>Conversations</span>
-              <ArrowRight className="w-3 h-3" />
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveTab('content_calendar')}
+                className="relative text-[11px] font-semibold text-slate-700 hover:text-blue-700 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                title="Content Calendar"
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Calendar</span>
+                {upcomingScheduledCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    {upcomingScheduledCount > 9 ? '9+' : upcomingScheduledCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('conversations')}
+                className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <span>Conversations</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
           </div>
 
           {/* Phone shell: Compose / Preview tabs (same pattern as other screens) */}
@@ -431,7 +559,24 @@ export const BulkContentSenderView: React.FC = () => {
                     <button
                       key={opt.key}
                       type="button"
-                      onClick={() => setContentType(opt.key)}
+                      onClick={() => {
+                        setContentType(opt.key);
+                        if (opt.key !== 'personalized') {
+                          setAttachedVideos((prev) => {
+                            prev.forEach((v) => {
+                              if (v.startsWith('blob:')) URL.revokeObjectURL(v);
+                            });
+                            return [];
+                          });
+                          setAttachedImages((prev) => {
+                            if (prev.length <= FLYER_MAX_IMAGES) return prev;
+                            prev.slice(FLYER_MAX_IMAGES).forEach((img) => {
+                              if (img.startsWith('blob:')) URL.revokeObjectURL(img);
+                            });
+                            return prev.slice(0, FLYER_MAX_IMAGES);
+                          });
+                        }
+                      }}
                       className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-center gap-1.5 text-center ${
                         selected
                           ? opt.active
@@ -772,36 +917,66 @@ export const BulkContentSenderView: React.FC = () => {
 
               {/* Attachments Section */}
               <div className="space-y-2 pt-1 border-t border-slate-100">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
                     <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
-                      Flyer Attachments (Max 3 Images)
+                      {contentType === 'personalized'
+                        ? `Attachments (max ${PERSONALIZED_MAX_IMAGES} images · ${PERSONALIZED_MAX_VIDEOS} videos)`
+                        : `Flyer Attachments (Max ${FLYER_MAX_IMAGES} Images)`}
                     </span>
                     <span className="text-[10.5px] text-slate-400">
-                      {attachedImages.length}/3 attached • JPEG, PNG, WebP up to 8MB
+                      {attachedImages.length}/{maxImages} images
+                      {contentType === 'personalized'
+                        ? ` · ${attachedVideos.length}/${PERSONALIZED_MAX_VIDEOS} videos · MP4/WebM up to 25MB`
+                        : ' · JPEG, PNG, WebP up to 8MB'}
                     </span>
                   </div>
 
-                  <label
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer select-none ${
-                      attachedImages.length >= 3
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                        : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 shadow-3xs'
-                    }`}
-                    title="Attach campaign flyer creatives"
-                  >
-                    <ImagePlus className="w-4 h-4 text-blue-600" />
-                    <span>Attach Images</span>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      disabled={attachedImages.length >= 3}
-                      onChange={handleFileAttach}
-                      className="hidden"
-                    />
-                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <label
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer select-none ${
+                        attachedImages.length >= maxImages
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                          : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 shadow-3xs'
+                      }`}
+                      title="Attach images"
+                    >
+                      <ImagePlus className="w-4 h-4 text-blue-600" />
+                      <span>Images</span>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        disabled={attachedImages.length >= maxImages}
+                        onChange={handleFileAttach}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {contentType === 'personalized' && (
+                      <label
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer select-none ${
+                          attachedVideos.length >= PERSONALIZED_MAX_VIDEOS
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                            : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 shadow-3xs'
+                        }`}
+                        title="Attach videos (Personalized)"
+                      >
+                        <Video className="w-4 h-4 text-purple-600" />
+                        <span>Video</span>
+                        <input
+                          ref={videoInputRef}
+                          type="file"
+                          accept="video/mp4,video/webm,video/*"
+                          multiple
+                          disabled={attachedVideos.length >= PERSONALIZED_MAX_VIDEOS}
+                          onChange={handleVideoAttach}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
 
                 {/* Previews Grid */}
@@ -828,6 +1003,33 @@ export const BulkContentSenderView: React.FC = () => {
                         <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-bold">
                           Flyer {idx + 1}
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {attachedVideos.length > 0 && (
+                  <div className="pt-1 space-y-2">
+                    {attachedVideos.map((vid, idx) => (
+                      <div
+                        key={idx}
+                        className="relative w-full rounded-xl overflow-hidden border border-purple-200 bg-slate-900 shadow-2xs"
+                      >
+                        <video
+                          src={vid}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="w-full max-h-[180px] bg-black"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVideo(idx)}
+                          className="absolute top-2 right-2 w-6 h-6 bg-slate-900/80 hover:bg-rose-600 text-white rounded-full flex items-center justify-center cursor-pointer"
+                          title="Remove video"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -925,6 +1127,21 @@ export const BulkContentSenderView: React.FC = () => {
                   </div>
                 )}
 
+                {attachedVideos.length > 0 && (
+                  <div className="space-y-2">
+                    {attachedVideos.map((vid, idx) => (
+                      <video
+                        key={idx}
+                        src={vid}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full max-h-[160px] rounded-lg bg-black border border-slate-200"
+                      />
+                    ))}
+                  </div>
+                )}
+
                 {messageText.trim() ? (
                   <p className="text-[13px] text-slate-800 leading-relaxed whitespace-pre-wrap">
                     {messageText.trim()}
@@ -932,7 +1149,8 @@ export const BulkContentSenderView: React.FC = () => {
                 ) : null}
 
                 {(contentType === 'flyer' ||
-                  (contentType === 'personalized' && attachedImages.length > 0)) && (
+                  (contentType === 'personalized' &&
+                    (attachedImages.length > 0 || attachedVideos.length > 0))) && (
                   <div className="bg-[#fff7ed] border border-amber-100 rounded-xl px-2.5 py-2 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Clock className="w-4 h-4 text-amber-500 shrink-0" />
@@ -981,6 +1199,9 @@ export const BulkContentSenderView: React.FC = () => {
                   <span className="text-slate-500 font-medium">Attached Creatives:</span>
                   <span className="font-bold text-slate-800">
                     {attachedImages.length} image{attachedImages.length !== 1 ? 's' : ''}
+                    {attachedVideos.length > 0
+                      ? ` · ${attachedVideos.length} video`
+                      : ''}
                   </span>
                 </div>
 
@@ -1017,6 +1238,46 @@ export const BulkContentSenderView: React.FC = () => {
                       : 'Select Marketers to Send'}
                   </span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSchedulePanel((v) => !v)}
+                  disabled={!canSend}
+                  className="w-full py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <CalendarClock className="w-4 h-4 text-blue-600" />
+                  Schedule for later
+                </button>
+
+                {showSchedulePanel && (
+                  <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 space-y-2.5">
+                    <label className="block">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Send at
+                      </span>
+                      <input
+                        type="datetime-local"
+                        value={scheduleAt}
+                        min={defaultScheduleLocalValue()}
+                        onChange={(e) => setScheduleAt(e.target.value)}
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                      />
+                    </label>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      Queues this {contentType === 'flyer' ? 'flyer' : 'content'} on the calendar.
+                      It will auto-send at the chosen time while the app is open.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleSchedule}
+                      disabled={!canSend || !scheduleAt}
+                      className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <CalendarDays className="w-3.5 h-3.5" />
+                      Add to calendar
+                    </button>
+                  </div>
+                )}
 
                 <button
                   type="button"

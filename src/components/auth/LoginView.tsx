@@ -329,6 +329,21 @@ export const LoginView: React.FC = () => {
               <div className="font-bold text-slate-800">Marketer Account</div>
               <div className="text-[10.5px] text-slate-500 truncate">marketer@marketingapp.com</div>
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('tour@marketingapp.com');
+                setPassword('Tour@123');
+                setError(null);
+                setApprovalBlocked(null);
+              }}
+              className="col-span-2 p-2.5 rounded-xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100 hover:border-blue-300 text-left transition-colors cursor-pointer"
+            >
+              <div className="font-bold text-blue-900">Quick Tour Sample</div>
+              <div className="text-[10.5px] text-blue-700/80 truncate">
+                tour@marketingapp.com · always opens tour (no first-time lock)
+              </div>
+            </button>
           </div>
         </div>
 

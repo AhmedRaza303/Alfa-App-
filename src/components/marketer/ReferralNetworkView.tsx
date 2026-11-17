@@ -2,63 +2,86 @@ import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useShellLayout } from '../../context/ShellLayoutContext';
 import {
-  buildReferralTree,
-  getDirectReferrals,
-  ReferralNode
+  getReferralDownline,
+  getReferralNetworkSummary
 } from '../../utils/referrals';
-import { ApprovalStatus } from '../../types';
+import { ApprovalStatus, ReferralRelationType } from '../../types';
 import {
   Link2,
   Copy,
   Check,
   Users,
-  GitBranch,
-  ChevronDown,
   Share2,
-  Crown,
-  Network
+  Network,
+  GitBranch,
+  Search,
+  Hash,
+  Globe2
 } from 'lucide-react';
 
-function statusStyles(status: ApprovalStatus | undefined) {
+type RelationFilter = 'all' | ReferralRelationType;
+
+function statusMeta(status: ApprovalStatus | undefined) {
   if (status === 'pending') {
-    return {
-      ring: 'ring-amber-300',
-      badge: 'bg-amber-100 text-amber-800 border-amber-200',
-      line: 'bg-amber-300'
-    };
+    return { label: 'Pending', className: 'bg-amber-50 text-amber-800 border-amber-200' };
   }
   if (status === 'rejected') {
-    return {
-      ring: 'ring-rose-300',
-      badge: 'bg-rose-100 text-rose-700 border-rose-200',
-      line: 'bg-rose-300'
-    };
+    return { label: 'Rejected', className: 'bg-rose-50 text-rose-700 border-rose-200' };
   }
-  return {
-    ring: 'ring-emerald-300',
-    badge: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    line: 'bg-emerald-300'
-  };
+  return { label: 'Approved', className: 'bg-emerald-50 text-emerald-800 border-emerald-200' };
+}
+
+function formatOnboarded(iso?: string) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
 }
 
 export const ReferralNetworkView: React.FC = () => {
   const { currentUser, users, getReferralLinkForUser, showToast, setActiveTab } = useApp();
   const { isExpandedShell } = useShellLayout();
-  const [copied, setCopied] = useState(false);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [relationFilter, setRelationFilter] = useState<RelationFilter>('all');
+  const [search, setSearch] = useState('');
 
   const link = getReferralLinkForUser() || '';
   const code = currentUser?.referralCode || '';
 
-  const tree = useMemo(() => {
-    if (!currentUser) return null;
-    return buildReferralTree(users, currentUser.id);
+  const summary = useMemo(() => {
+    if (!currentUser) {
+      return { directCount: 0, indirectCount: 0, totalNetwork: 0, totalReferralPoints: 0 };
+    }
+    return getReferralNetworkSummary(users, currentUser.id);
   }, [users, currentUser]);
 
-  const direct = useMemo(() => {
+  const downline = useMemo(() => {
     if (!currentUser) return [];
-    return getDirectReferrals(users, currentUser.id);
+    return getReferralDownline(users, currentUser.id);
   }, [users, currentUser]);
+
+  const filtered = useMemo(() => {
+    let list = downline;
+    if (relationFilter !== 'all') {
+      list = list.filter((d) => d.relation === relationFilter);
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(
+        (d) =>
+          d.user.name.toLowerCase().includes(q) ||
+          (d.user.country || '').toLowerCase().includes(q) ||
+          (d.user.referralCode || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [downline, relationFilter, search]);
 
   if (currentUser?.role !== 'Marketer') {
     return (
@@ -76,177 +99,40 @@ export const ReferralNetworkView: React.FC = () => {
     );
   }
 
-  const handleCopy = async () => {
-    if (!link) return;
+  const copyText = async (value: string, kind: 'link' | 'code') => {
+    if (!value) return;
     try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      showToast('Referral link copied', 'success');
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(value);
+      if (kind === 'link') {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+        showToast('Referral link copied', 'success');
+      } else {
+        setCopiedCode(true);
+        setTimeout(() => setCopiedCode(false), 2000);
+        showToast('Referral code copied', 'success');
+      }
     } catch {
-      showToast('Could not copy — select the link manually', 'error');
+      showToast('Could not copy — select the text manually', 'error');
     }
   };
 
-  const isExpanded = (id: string, depth: number) =>
-    expanded[id] !== undefined ? expanded[id] : depth < 2;
-
-  const toggle = (id: string, depth: number) => {
-    setExpanded((prev) => ({
-      ...prev,
-      [id]: !(prev[id] !== undefined ? prev[id] : depth < 2)
-    }));
-  };
-
-  const renderBranch = (node: ReferralNode, depth: number, isLast: boolean) => {
-    const hasKids = node.children.length > 0;
-    const open = isExpanded(node.user.id, depth);
-    const status = node.user.approvalStatus || 'approved';
-    const styles = statusStyles(status);
-    const isRoot = depth === 0;
-
-    return (
-      <div key={node.user.id} className="relative">
-        {/* Vertical connector from parent */}
-        {depth > 0 && (
-          <>
-            <span
-              className={`absolute left-[19px] -top-3 w-0.5 h-3 ${styles.line}`}
-              aria-hidden
-            />
-            <span
-              className={`absolute left-[19px] top-5 w-3 h-0.5 ${styles.line}`}
-              aria-hidden
-            />
-            {!isLast && (
-              <span
-                className="absolute left-[19px] top-5 bottom-0 w-0.5 bg-slate-200"
-                aria-hidden
-              />
-            )}
-          </>
-        )}
-
-        <div className={depth > 0 ? 'pl-8' : ''}>
-          <div
-            className={`relative flex items-center gap-2.5 rounded-2xl border p-2.5 transition-shadow ${
-              isRoot
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 border-blue-500 text-white shadow-md shadow-blue-600/20'
-                : 'bg-white border-slate-200/90 shadow-2xs hover:shadow-xs'
-            }`}
-          >
-            {hasKids && !isRoot && (
-              <button
-                type="button"
-                onClick={() => toggle(node.user.id, depth)}
-                className="absolute -left-1 top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-white border border-slate-200 text-slate-500 flex items-center justify-center cursor-pointer z-10 shadow-2xs"
-                aria-label={open ? 'Collapse' : 'Expand'}
-              >
-                <ChevronDown
-                  className={`w-3 h-3 transition-transform ${open ? '' : '-rotate-90'}`}
-                />
-              </button>
-            )}
-
-            <div className="relative shrink-0">
-              <img
-                src={node.user.avatar}
-                alt=""
-                className={`w-10 h-10 rounded-full object-cover ring-2 ${
-                  isRoot ? 'ring-white/80' : styles.ring
-                }`}
-                referrerPolicy="no-referrer"
-              />
-              {isRoot && (
-                <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-400 text-amber-950 flex items-center justify-center border-2 border-white">
-                  <Crown className="w-2.5 h-2.5" />
-                </span>
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <p
-                  className={`text-xs font-extrabold truncate ${
-                    isRoot ? 'text-white' : 'text-slate-900'
-                  }`}
-                >
-                  {node.user.name}
-                </p>
-                {isRoot && (
-                  <span className="text-[9px] font-bold uppercase tracking-wide bg-white/20 text-white px-1.5 py-0.5 rounded-md">
-                    You
-                  </span>
-                )}
-                {!isRoot && (
-                  <span className="text-[9px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md">
-                    L{depth}
-                  </span>
-                )}
-              </div>
-              <p
-                className={`text-[10px] font-semibold truncate mt-0.5 ${
-                  isRoot ? 'text-blue-100' : 'text-slate-400'
-                }`}
-              >
-                {node.user.referralCode}
-                {node.user.city ? ` · ${node.user.city}` : ''}
-              </p>
-            </div>
-
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              {!isRoot && (
-                <span
-                  className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md border ${styles.badge}`}
-                >
-                  {status}
-                </span>
-              )}
-              {(node.directCount > 0 || isRoot) && (
-                <span
-                  className={`inline-flex items-center gap-0.5 text-[10px] font-bold ${
-                    isRoot ? 'text-blue-100' : 'text-slate-500'
-                  }`}
-                >
-                  <Users className="w-3 h-3" />
-                  {node.directCount}
-                  {node.totalCount > node.directCount && (
-                    <span className="opacity-70">· {node.totalCount} total</span>
-                  )}
-                </span>
-              )}
-            </div>
-
-            {hasKids && isRoot && (
-              <button
-                type="button"
-                onClick={() => toggle(node.user.id, depth)}
-                className="w-7 h-7 rounded-lg bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer shrink-0"
-              >
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform ${open ? '' : '-rotate-90'}`}
-                />
-              </button>
-            )}
-          </div>
-
-          {hasKids && open && (
-            <div className="relative mt-3 space-y-3">
-              {/* Stem under root */}
-              {isRoot && (
-                <span
-                  className="absolute left-[19px] -top-3 w-0.5 h-3 bg-blue-400"
-                  aria-hidden
-                />
-              )}
-              {node.children.map((child, idx) =>
-                renderBranch(child, depth + 1, idx === node.children.length - 1)
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    );
+  const handleNativeShare = async () => {
+    if (!link) return;
+    const payload = {
+      title: 'Join MarketPulse',
+      text: `Join with my referral code ${code}`,
+      url: link
+    };
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share(payload);
+        return;
+      } catch {
+        // fall through to copy
+      }
+    }
+    await copyText(link, 'link');
   };
 
   return (
@@ -256,107 +142,231 @@ export const ReferralNetworkView: React.FC = () => {
           isExpandedShell ? 'max-w-3xl p-4 space-y-4' : 'max-w-md'
         }`}
       >
-        {/* Share link */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs space-y-3">
+        {/* 1. Referral link & code */}
+        <section
+          className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs space-y-3"
+          data-tour="referral-invite"
+        >
           <div className="flex items-center gap-1.5">
             <Share2 className="w-3.5 h-3.5 text-blue-600" />
             <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-              Your referral link
+              Invite marketers
             </span>
           </div>
-          <p className="text-xs text-slate-500">
-            Share this link. New marketers who sign up through it join your network.
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Share your link or code. New marketers who register with either are linked to your
+            network automatically.
           </p>
-          <div className="flex items-center gap-1.5">
-            <div className="flex-1 min-w-0 flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2">
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+              Referral link
+            </p>
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2">
               <Link2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <p className="text-[11px] font-semibold text-slate-700 truncate">{link}</p>
+              <p className="text-[11px] font-semibold text-slate-700 truncate flex-1 min-w-0">
+                {link || '—'}
+              </p>
             </div>
             <button
               type="button"
-              onClick={handleCopy}
-              className="h-9 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
+              onClick={handleNativeShare}
+              disabled={!link}
+              className="mt-1.5 w-full py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer disabled:opacity-50"
             >
-              {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              {copied ? 'Copied' : 'Copy'}
+              {copiedLink ? 'Link copied' : 'Share link'}
             </button>
           </div>
-          <p className="text-[10px] font-semibold text-slate-400">
-            Code: <span className="text-slate-700 font-extrabold tracking-wide">{code}</span>
-          </p>
-        </section>
 
-        {/* Stats */}
-        <section className="grid grid-cols-2 gap-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs">
-            <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-              <Users className="w-3 h-3" /> Direct
-            </div>
-            <p className="text-xl font-extrabold text-slate-900 leading-none">
-              {tree?.directCount ?? direct.length}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+              Referral code
             </p>
-            <p className="text-[10px] text-slate-500 mt-1">signed up with your link</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs">
-            <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-              <Network className="w-3 h-3" /> Network
-            </div>
-            <p className="text-xl font-extrabold text-slate-900 leading-none">
-              {tree?.totalCount ?? 0}
-            </p>
-            <p className="text-[10px] text-slate-500 mt-1">total in your tree</p>
-          </div>
-        </section>
-
-        {/* New tree */}
-        <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
-          <div className="px-3.5 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <GitBranch className="w-3.5 h-3.5 text-blue-600" />
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-                Referral tree
-              </span>
-            </div>
-            {tree && tree.totalCount > 0 && (
-              <span className="text-[10px] font-bold text-slate-400">
-                {tree.totalCount} marketer{tree.totalCount === 1 ? '' : 's'}
-              </span>
-            )}
-          </div>
-
-          <div className="p-3.5">
-            {!tree || tree.totalCount === 0 ? (
-              <div className="py-10 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center mx-auto mb-3">
-                  <Network className="w-6 h-6 text-slate-300" />
-                </div>
-                <p className="text-xs font-bold text-slate-700">No referrals yet</p>
-                <p className="text-[11px] text-slate-400 mt-1 max-w-[220px] mx-auto leading-relaxed">
-                  Copy your link and share it. When someone signs up, your tree grows here.
+              <div className="flex-1 min-w-0 flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2">
+                <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <p className="text-sm font-extrabold tracking-widest text-slate-900 truncate">
+                  {code || '—'}
                 </p>
               </div>
-            ) : (
-              <div className="space-y-1">{renderBranch(tree, 0, true)}</div>
-            )}
+              <button
+                type="button"
+                onClick={() => copyText(code, 'code')}
+                disabled={!code}
+                className="h-9 px-3 rounded-xl border border-slate-200 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedCode ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <p className="mt-1.5 text-[10px] text-slate-400 font-medium">
+              Others can enter this code on signup if they don&apos;t open your link.
+            </p>
           </div>
+        </section>
 
-          {tree && tree.totalCount > 0 && (
-            <div className="px-3.5 py-2 border-t border-slate-100 bg-slate-50/80 flex flex-wrap gap-3 text-[10px] font-semibold text-slate-500">
-              <span className="inline-flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" /> Approved
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-amber-400" /> Pending
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-rose-400" /> Rejected
-              </span>
-              <span className="inline-flex items-center gap-1 ml-auto text-slate-400">
-                L1 = direct · L2+ = downline
+        {/* 2. Network overview */}
+        <section className="grid grid-cols-3 gap-2">
+          <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-3 shadow-2xs">
+            <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-sky-700/80 mb-1">
+              <Users className="w-3 h-3" /> Direct
+            </div>
+            <p className="text-xl font-extrabold text-sky-950 leading-none tabular-nums">
+              {summary.directCount}
+            </p>
+            <p className="text-[9px] font-semibold text-sky-800/70 mt-1">You onboarded</p>
+          </div>
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3 shadow-2xs">
+            <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-800/80 mb-1">
+              <GitBranch className="w-3 h-3" /> Indirect
+            </div>
+            <p className="text-xl font-extrabold text-amber-950 leading-none tabular-nums">
+              {summary.indirectCount}
+            </p>
+            <p className="text-[9px] font-semibold text-amber-800/70 mt-1">Downline</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs">
+            <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+              <Network className="w-3 h-3" /> Total
+            </div>
+            <p className="text-xl font-extrabold text-slate-900 leading-none tabular-nums">
+              {summary.totalNetwork}
+            </p>
+            <p className="text-[9px] font-semibold text-slate-500 mt-1">Full network</p>
+          </div>
+        </section>
+
+        {/* 3–4. Downline + filters */}
+        <section
+          className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs space-y-3"
+          data-tour="referral-downline"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-slate-600" />
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                Downline details
               </span>
             </div>
+            <span className="text-[10px] font-bold text-slate-400 tabular-nums">
+              {filtered.length} shown
+            </span>
+          </div>
+
+          <div className="flex gap-1.5">
+            {(
+              [
+                { id: 'all' as const, label: 'All' },
+                { id: 'direct' as const, label: 'Direct' },
+                { id: 'indirect' as const, label: 'Indirect' }
+              ] as const
+            ).map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setRelationFilter(f.id)}
+                className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer transition-colors ${
+                  relationFilter === f.id
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name…"
+              className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-blue-400"
+            />
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center px-3">
+              <Network className="w-7 h-7 text-slate-300 mx-auto mb-2" />
+              <p className="text-xs font-bold text-slate-700">No referrals here</p>
+              <p className="text-[11px] text-slate-400 mt-1 max-w-[240px] mx-auto">
+                {downline.length === 0
+                  ? 'Share your link or code to grow your network.'
+                  : 'Try another filter or search.'}
+              </p>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {filtered.map((entry) => {
+                const st = statusMeta(entry.user.approvalStatus);
+                return (
+                  <li
+                    key={entry.user.id}
+                    className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <img
+                        src={entry.user.avatar}
+                        alt=""
+                        className="w-10 h-10 rounded-full object-cover border border-white shadow-2xs shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                              <p className="text-xs font-extrabold text-slate-900 truncate">
+                                {entry.user.name}
+                              </p>
+                              <span
+                                className={`shrink-0 inline-flex px-1.5 py-0.5 rounded-md text-[9px] font-bold border ${
+                                  entry.relation === 'direct'
+                                    ? 'bg-sky-50 text-sky-800 border-sky-200'
+                                    : 'bg-amber-50 text-amber-800 border-amber-200'
+                                }`}
+                              >
+                                {entry.relation === 'direct'
+                                  ? 'Direct'
+                                  : `Indirect · L${entry.depth}`}
+                              </span>
+                            </div>
+                            <p className="text-[10px] font-semibold text-slate-400 flex items-center gap-1 mt-0.5 truncate">
+                              <Globe2 className="w-3 h-3 shrink-0" />
+                              {entry.user.country || '—'}
+                            </p>
+                            {entry.relation === 'indirect' && (
+                              <p className="mt-1 text-[10px] text-slate-400 font-medium truncate">
+                                Via {entry.referredByName}
+                              </p>
+                            )}
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <span
+                              className={`inline-flex px-1.5 py-0.5 rounded-md text-[9px] font-bold border ${st.className}`}
+                            >
+                              {st.label}
+                            </span>
+                            <p className="mt-1 text-[10px] font-semibold text-slate-400">
+                              {formatOnboarded(entry.user.registeredAt)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </section>
+
+        {/* 5. Future incentives note (structure ready; no rewards UI yet) */}
+        <p className="text-[10px] text-slate-400 text-center px-2 leading-relaxed">
+          Network tracking is live. Referral rewards / bonus points can plug into this structure
+          later without changing how links and downlines work.
+        </p>
       </div>
     </div>
   );

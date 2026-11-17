@@ -144,18 +144,36 @@ export interface TranslationDict {
   previous: string;
   finish: string;
   replayTour: string;
-  tourStep1Title: string;
-  tourStep1Desc: string;
-  tourStep2Title: string;
-  tourStep2Desc: string;
-  tourStep3Title: string;
-  tourStep3Desc: string;
-  tourStep4Title: string;
-  tourStep4Desc: string;
-  tourStep5Title: string;
-  tourStep5Desc: string;
-  tourStep6Title: string;
-  tourStep6Desc: string;
+  tourNavChatsTitle: string;
+  tourNavChatsDesc: string;
+  tourChatFiltersTitle: string;
+  tourChatFiltersDesc: string;
+  tourChatMessagesTitle: string;
+  tourChatMessagesDesc: string;
+  tourChatActionsTitle: string;
+  tourChatActionsDesc: string;
+  tourNavLeadsTitle: string;
+  tourNavLeadsDesc: string;
+  tourLeadsToolsTitle: string;
+  tourLeadsToolsDesc: string;
+  tourLeadsListTitle: string;
+  tourLeadsListDesc: string;
+  tourNavStatsTitle: string;
+  tourNavStatsDesc: string;
+  tourStatsOverviewTitle: string;
+  tourStatsOverviewDesc: string;
+  tourNavReferralTitle: string;
+  tourNavReferralDesc: string;
+  tourReferralInviteTitle: string;
+  tourReferralInviteDesc: string;
+  tourReferralDownlineTitle: string;
+  tourReferralDownlineDesc: string;
+  tourNavAlertsTitle: string;
+  tourNavAlertsDesc: string;
+  tourAlertsListTitle: string;
+  tourAlertsListDesc: string;
+  skipTour: string;
+  stepOf: (current: number, total: number) => string;
 }
 
 const en: TranslationDict = {
@@ -276,7 +294,7 @@ const en: TranslationDict = {
   sharedWithAll: 'Shared with all marketers',
   toRecipient: (name) => `To: ${name}`,
   postedStatus: 'Posted',
-  notPostedStatus: 'Not Posted',
+  notPostedStatus: 'Need Revision',
   pendingStatus: 'Pending',
   postAction: 'Post',
   editAction: 'Edit',
@@ -286,25 +304,54 @@ const en: TranslationDict = {
   allMessages: 'All Messages',
 
   welcomeTitle: 'Welcome to Alfa!',
-  welcomeDesc: 'Your workspace is ready. Let\'s take a quick tour to help you manage your content and conversations.',
-  startTour: 'Start Tour',
+  welcomeDesc:
+    'You are approved and ready. We will highlight this page now — when you open other tabs for the first time, a short tour will run there too.',
+  startTour: 'Start Quick Tour',
   skipForNow: 'Skip for Now',
   next: 'Next',
-  previous: 'Back',
+  previous: 'Previous',
   finish: 'Finish',
   replayTour: 'Replay Tour',
-  tourStep1Title: 'Conversations',
-  tourStep1Desc: 'Receive content and communicate with your admin.',
-  tourStep2Title: 'Flyer Cards',
-  tourStep2Desc: 'Preview your creative images and read posting instructions.',
-  tourStep3Title: 'Posting Status',
-  tourStep3Desc: 'Mark your content as Posted or Not Posted to keep your admin updated.',
-  tourStep4Title: 'Copy Message',
-  tourStep4Desc: 'Copy captions and content instructions with one tap.',
-  tourStep5Title: 'Notifications',
-  tourStep5Desc: 'Stay updated about new content and important activity.',
-  tourStep6Title: 'Profile & Preferences',
-  tourStep6Desc: 'Manage your profile, flyer preferences, and application language.'
+  tourNavChatsTitle: 'Chats tab',
+  tourNavChatsDesc:
+    'Tap Chats anytime from the bottom bar to open your inbox with admin creatives and messages.',
+  tourChatFiltersTitle: 'Filters & search',
+  tourChatFiltersDesc:
+    'Filter by category, media type, and status — Pending, Posted, Revision, or Language Requested.',
+  tourChatMessagesTitle: 'Message feed',
+  tourChatMessagesDesc:
+    'Flyers, personalized content, and notes from admin appear here in order. Scroll to review each deliverable.',
+  tourChatActionsTitle: 'Post & copy actions',
+  tourChatActionsDesc:
+    'Open the ⋮ menu to mark content as Posted or Need Revision. Use Copy to grab captions before sharing.',
+  tourNavLeadsTitle: 'Leads tab',
+  tourNavLeadsDesc: 'Switch to Leads to register and manage accident contacts you bring in.',
+  tourLeadsToolsTitle: 'New lead & filters',
+  tourLeadsToolsDesc:
+    'Tap New lead to add a contact. Search and filter by submission status or accident type.',
+  tourLeadsListTitle: 'Your leads list',
+  tourLeadsListDesc:
+    'Each card shows status. Edit or delete within 24 hours; after that the lead locks.',
+  tourNavStatsTitle: 'Stats tab',
+  tourNavStatsDesc: 'Open Stats to see how your posting and lead activity are performing.',
+  tourStatsOverviewTitle: 'Your performance dashboard',
+  tourStatsOverviewDesc:
+    'Filter by period, then review responses, lead capture by accident type, and content mix (flyers vs personalized).',
+  tourNavReferralTitle: 'Referrals tab',
+  tourNavReferralDesc: 'Grow your network by inviting other marketers from Referrals.',
+  tourReferralInviteTitle: 'Invite link & code',
+  tourReferralInviteDesc:
+    'Share your referral link or copy your code. New signups with either join your network.',
+  tourReferralDownlineTitle: 'Downline details',
+  tourReferralDownlineDesc:
+    'See Direct and Indirect referrals, filter the list, and track approval status.',
+  tourNavAlertsTitle: 'Alerts tab',
+  tourNavAlertsDesc: 'Alerts show new content, posting updates, and account activity.',
+  tourAlertsListTitle: 'Notification feed',
+  tourAlertsListDesc:
+    'Tap an alert to jump to the related chat or action. Use Mark all read to clear the badge.',
+  skipTour: 'Skip',
+  stepOf: (current, total) => `Step ${current} of ${total}`
 };
 
 const es: TranslationDict = {
@@ -425,7 +472,7 @@ const es: TranslationDict = {
   sharedWithAll: 'Compartido con todos los asesores',
   toRecipient: (name) => `Para: ${name}`,
   postedStatus: 'Publicado',
-  notPostedStatus: 'No Publicado',
+  notPostedStatus: 'Necesita revisión',
   pendingStatus: 'Pendiente',
   postAction: 'Publicar',
   editAction: 'Editar',
@@ -435,25 +482,54 @@ const es: TranslationDict = {
   allMessages: 'Todos los Mensajes',
 
   welcomeTitle: '¡Bienvenido a Alfa!',
-  welcomeDesc: 'Tu espacio de trabajo está listo. Hagamos un breve recorrido para ayudarte a gestionar tu contenido y conversaciones.',
-  startTour: 'Comenzar Recorrido',
-  skipForNow: 'Omitir por Ahora',
+  welcomeDesc:
+    'Ya estás aprobado. Resaltaremos esta pantalla ahora — al abrir otras pestañas por primera vez, verás un recorrido corto allí también.',
+  startTour: 'Comenzar recorrido',
+  skipForNow: 'Omitir por ahora',
   next: 'Siguiente',
-  previous: 'Atrás',
+  previous: 'Anterior',
   finish: 'Finalizar',
-  replayTour: 'Repetir Recorrido',
-  tourStep1Title: 'Conversaciones',
-  tourStep1Desc: 'Recibe contenido y comunícate con tu administrador.',
-  tourStep2Title: 'Tarjetas de Folletos',
-  tourStep2Desc: 'Previsualiza imágenes creativas y lee instrucciones de publicación.',
-  tourStep3Title: 'Estado de Publicación',
-  tourStep3Desc: 'Marca tu contenido como Publicado o No Publicado para mantener informado al admin.',
-  tourStep4Title: 'Copiar Mensaje',
-  tourStep4Desc: 'Copia pies de foto e instrucciones con un solo toque.',
-  tourStep5Title: 'Notificaciones',
-  tourStep5Desc: 'Mantente al día sobre nuevo contenido y actividad importante.',
-  tourStep6Title: 'Perfil y Preferencias',
-  tourStep6Desc: 'Gestiona tu perfil, preferencias de folletos e idioma de la aplicación.'
+  replayTour: 'Repetir recorrido',
+  tourNavChatsTitle: 'Pestaña Chats',
+  tourNavChatsDesc:
+    'Toca Chats en la barra inferior para abrir tu bandeja con creativos y mensajes del admin.',
+  tourChatFiltersTitle: 'Filtros y búsqueda',
+  tourChatFiltersDesc:
+    'Filtra por Publicado, Pendiente o Retenido. Busca texto, elige tipo de contenido o solo Media.',
+  tourChatMessagesTitle: 'Feed de mensajes',
+  tourChatMessagesDesc:
+    'Aquí aparecen flyers, contenido personalizado y notas del admin. Desplázate para revisar cada entrega.',
+  tourChatActionsTitle: 'Acciones Post y copiar',
+  tourChatActionsDesc:
+    'Marca como Publicado o Editar/No Publicado. Usa Copiar para capturar textos antes de compartir.',
+  tourNavLeadsTitle: 'Pestaña Leads',
+  tourNavLeadsDesc: 'Cambia a Leads para registrar y gestionar los contactos que captas.',
+  tourLeadsToolsTitle: 'Nuevo lead y filtros',
+  tourLeadsToolsDesc:
+    'Toca New lead para agregar. Busca y filtra por estado de envío o tipo de accidente.',
+  tourLeadsListTitle: 'Lista de leads',
+  tourLeadsListDesc:
+    'Cada tarjeta muestra el estado. Edita o elimina dentro de 24 horas; luego se bloquea.',
+  tourNavStatsTitle: 'Pestaña Stats',
+  tourNavStatsDesc: 'Abre Stats para ver el rendimiento de publicaciones y leads.',
+  tourStatsOverviewTitle: 'Tu panel de rendimiento',
+  tourStatsOverviewDesc:
+    'Filtra por periodo y revisa respuestas, captura de leads por tipo de accidente y mezcla de contenido (flyers vs personalizado).',
+  tourNavReferralTitle: 'Pestaña Referidos',
+  tourNavReferralDesc: 'Haz crecer tu red invitando marketers desde Referidos.',
+  tourReferralInviteTitle: 'Enlace y código',
+  tourReferralInviteDesc:
+    'Comparte tu enlace o copia tu código. Quien se registre con cualquiera entra a tu red.',
+  tourReferralDownlineTitle: 'Detalle de red',
+  tourReferralDownlineDesc:
+    'Mira Directos e Indirectos, filtra la lista y sigue el estado de aprobación.',
+  tourNavAlertsTitle: 'Pestaña Alertas',
+  tourNavAlertsDesc: 'Las alertas muestran nuevo contenido, publicaciones y actividad de cuenta.',
+  tourAlertsListTitle: 'Feed de notificaciones',
+  tourAlertsListDesc:
+    'Toca una alerta para ir al chat o acción. Usa Marcar todo leído para limpiar el badge.',
+  skipTour: 'Omitir',
+  stepOf: (current, total) => `Paso ${current} de ${total}`
 };
 
 export const translations: Record<AppLanguage, TranslationDict> = { en, es };

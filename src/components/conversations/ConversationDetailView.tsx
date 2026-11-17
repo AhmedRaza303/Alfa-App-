@@ -15,12 +15,58 @@ import {
   RotateCcw,
   ImagePlus,
   X,
-  Smile
+  Smile,
+  Video,
+  Search,
+  Languages
 } from 'lucide-react';
-import { Message } from '../../types';
+import { ChatCategoryFilter, ChatPostingFilter, Message } from '../../types';
+import {
+  FLYER_MAX_IMAGES,
+  PERSONALIZED_MAX_IMAGES,
+  PERSONALIZED_MAX_VIDEOS
+} from '../../utils/mediaStorage';
 
-type PostingFilter = 'all' | 'pending' | 'posted' | 'not_posted';
-type CategoryFilter = 'all' | 'flyer' | 'personalized' | 'normal';
+type PostingFilter = ChatPostingFilter;
+type CategoryFilter = ChatCategoryFilter;
+type MediaTypeFilter = 'all' | 'images' | 'videos' | 'text_only';
+
+const hasMessageImages = (m: Message) =>
+  Boolean((m.images && m.images.length > 0) || m.imageUrl);
+
+const hasMessageVideo = (m: Message) => Boolean(m.videos && m.videos.length > 0);
+
+const hasAttachMedia = (m: Message) => hasMessageImages(m) || hasMessageVideo(m);
+
+const isTextOnlyMessage = (m: Message) => !hasAttachMedia(m);
+
+const isPostableMessage = (m: Message) =>
+  Boolean(
+    hasAttachMedia(m) ||
+      m.isPostable ||
+      m.postingStatus ||
+      m.contentCategory === 'flyer' ||
+      m.contentCategory === 'personalized'
+  );
+
+const isOthersCategory = (m: Message) => {
+  if (m.contentCategory === 'normal') return true;
+  if (m.contentCategory === 'flyer' || m.contentCategory === 'personalized') return false;
+  return m.type === 'text' && !m.isPostable;
+};
+
+const messageSearchBlob = (m: Message) =>
+  [
+    m.text,
+    m.campaignName,
+    m.caption,
+    m.notes,
+    m.contentCategory,
+    m.senderName
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
 
 const EMOJI_LIST = [
   '🚀', '📢', '🎯', '🔥', '✨', '💼', '📈', '💡', '📅', '🏷️',
@@ -39,26 +85,48 @@ export const ConversationDetailView: React.FC = () => {
     setTargetMessageId,
     markMessagesAsRead,
     getMessageAction,
+    getLanguageRequestForMessage,
     setActiveTab,
-    unreadNotificationCount
+    unreadNotificationCount,
+    chatPostingFilter,
+    setChatPostingFilter,
+    chatCategoryFilter,
+    setChatCategoryFilter,
+    chatFilterNavToken
   } = useApp();
 
   const [inputText, setInputText] = useState('');
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<PostingFilter>('all');
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState<CategoryFilter>('all');
+  // Kept in AppContext so Stats → Chat redirect survives ConversationDetailView remount
+  const activeFilter = chatPostingFilter;
+  const setActiveFilter = setChatPostingFilter;
+  const activeCategoryFilter = chatCategoryFilter;
+  const setActiveCategoryFilter = setChatCategoryFilter;
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<MediaTypeFilter>('all');
+  const [chatSearch, setChatSearch] = useState('');
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const initialAnchorDoneRef = useRef(false);
+  const seenNavTokenRef = useRef(chatFilterNavToken);
+
+  useEffect(() => {
+    if (seenNavTokenRef.current === chatFilterNavToken) return;
+    seenNavTokenRef.current = chatFilterNavToken;
+    // Category/posting come from AppContext; only clear local media/search
+    setMediaTypeFilter('all');
+    setChatSearch('');
+  }, [chatFilterNavToken]);
 
   // Category and attachment state for Admin
   const [contentType, setContentType] = useState<'flyer' | 'personalized' | 'normal'>('flyer');
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [attachedVideos, setAttachedVideos] = useState<string[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
@@ -93,19 +161,22 @@ export const ConversationDetailView: React.FC = () => {
     setShowEmojiPicker(false);
   };
 
+  const maxImages =
+    contentType === 'personalized' ? PERSONALIZED_MAX_IMAGES : FLYER_MAX_IMAGES;
+
   const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setAttachError(null);
 
     const fileList = Array.from(files);
-    if (attachedImages.length + fileList.length > 3) {
-      setAttachError('Maximum 3 images allowed per message.');
+    if (attachedImages.length + fileList.length > maxImages) {
+      setAttachError(`Maximum ${maxImages} images allowed per message.`);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    const readers: Promise<string>[] = [];
+    const objectUrls: string[] = [];
     for (const file of fileList) {
       if (!file.type.startsWith('image/')) {
         setAttachError('Only image files (JPEG, PNG, WebP) are supported.');
@@ -117,31 +188,70 @@ export const ConversationDetailView: React.FC = () => {
         if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
-
-      readers.push(
-        new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (event) => resolve(event.target?.result as string);
-          reader.readAsDataURL(file);
-        })
-      );
+      objectUrls.push(URL.createObjectURL(file));
     }
 
-    Promise.all(readers).then((newImages) => {
-      setAttachedImages((prev) => [...prev, ...newImages].slice(0, 3));
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    });
+    setAttachedImages((prev) => [...prev, ...objectUrls].slice(0, maxImages));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleVideoAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setAttachError(null);
+
+    const fileList = Array.from(files);
+    if (attachedVideos.length + fileList.length > PERSONALIZED_MAX_VIDEOS) {
+      setAttachError(`Maximum ${PERSONALIZED_MAX_VIDEOS} videos allowed for Personalized.`);
+      if (videoInputRef.current) videoInputRef.current.value = '';
+      return;
+    }
+
+    const objectUrls: string[] = [];
+    for (const file of fileList) {
+      if (!file.type.startsWith('video/')) {
+        setAttachError('Only video files (MP4, WebM) are supported for Personalized.');
+        if (videoInputRef.current) videoInputRef.current.value = '';
+        return;
+      }
+      if (file.size > 25 * 1024 * 1024) {
+        setAttachError('Each video must be under 25MB.');
+        if (videoInputRef.current) videoInputRef.current.value = '';
+        return;
+      }
+      objectUrls.push(URL.createObjectURL(file));
+    }
+
+    setAttachedVideos((prev) =>
+      [...prev, ...objectUrls].slice(0, PERSONALIZED_MAX_VIDEOS)
+    );
+    if (videoInputRef.current) videoInputRef.current.value = '';
   };
 
   const removeAttachment = (index: number) => {
-    setAttachedImages((prev) => prev.filter((_, idx) => idx !== index));
+    setAttachedImages((prev) => {
+      const next = prev.filter((_, idx) => idx !== index);
+      const removed = prev[index];
+      if (removed?.startsWith('blob:')) URL.revokeObjectURL(removed);
+      return next;
+    });
     setAttachError(null);
   };
 
-  // Reset filters whenever a new conversation is opened
+  const removeVideo = (index: number) => {
+    setAttachedVideos((prev) => {
+      const next = prev.filter((_, idx) => idx !== index);
+      const removed = prev[index];
+      if (removed?.startsWith('blob:')) URL.revokeObjectURL(removed);
+      return next;
+    });
+    setAttachError(null);
+  };
+
+  // Reset local-only filters when conversation changes — posting/category stay in AppContext
   useEffect(() => {
-    setActiveFilter('all');
-    setActiveCategoryFilter('all');
+    setMediaTypeFilter('all');
+    setChatSearch('');
   }, [activeConversation?.id]);
 
   // If no active conversation exists, fallback gracefully
@@ -160,33 +270,32 @@ export const ConversationDetailView: React.FC = () => {
     ).length;
   }, [activeConversation.messages, currentUser?.id]);
 
-  // Posting counts: calculated from messages containing images/flyers
-  const imagePostingCounts = useMemo(() => {
-    const imageMessages = activeConversation.messages.filter(
-      (m: Message) => Boolean((m.images && m.images.length > 0) || m.imageUrl)
-    );
+  // Posting / language status counts for filter chips (mutually exclusive)
+  const statusCounts = useMemo(() => {
+    const pool = activeConversation.messages.filter(isPostableMessage);
+    let posted = 0;
+    let notPosted = 0;
+    let pending = 0;
+    let languageRequested = 0;
 
-    if (imageMessages.length === 0) return null;
-
-    let postedCount = 0;
-    let notPostedCount = 0;
-
-    imageMessages.forEach((m: Message) => {
+    pool.forEach((m: Message) => {
       const act = getMessageAction(m.id);
       const st = act?.status || m.postingStatus || 'pending';
-      if (st === 'posted') postedCount++;
-      else if (st === 'not_posted') notPostedCount++;
+      const hasLang = Boolean(getLanguageRequestForMessage(m.id));
+      if (st === 'posted') posted += 1;
+      else if (st === 'not_posted') notPosted += 1;
+      else if (hasLang) languageRequested += 1;
+      else pending += 1;
     });
 
-    const pendingCount = imageMessages.length - postedCount - notPostedCount;
-
     return {
-      total: imageMessages.length,
-      posted: postedCount,
-      notPosted: notPostedCount,
-      pending: pendingCount
+      total: activeConversation.messages.length,
+      posted,
+      notPosted,
+      pending,
+      languageRequested
     };
-  }, [activeConversation.messages, getMessageAction]);
+  }, [activeConversation.messages, getMessageAction, getLanguageRequestForMessage]);
 
   // Auto-mark received messages as read as marketer spends time viewing
   useEffect(() => {
@@ -233,77 +342,109 @@ export const ConversationDetailView: React.FC = () => {
     }
   }, [targetMessageId, setTargetMessageId]);
 
-  // Filtered messages combining Posting Status Filter and Category Filter
+  // Filtered messages: category + media type + posting status + search
   const filteredMessages = useMemo(() => {
     if (!activeConversation) return [];
+    const q = chatSearch.trim().toLowerCase();
 
     return activeConversation.messages.filter((m: Message) => {
-      // 1. Posting Status Filter
-      if (activeFilter !== 'all') {
-        const isSubjectToPosting = Boolean(
-          (m.images && m.images.length > 0) || m.imageUrl || m.isPostable || m.postingStatus
-        );
-        if (!isSubjectToPosting) return false;
+      // 1. Category: Flyer | Personalized | Others
+      if (activeCategoryFilter === 'flyer') {
+        if (m.contentCategory !== 'flyer') return false;
+      } else if (activeCategoryFilter === 'personalized') {
+        if (m.contentCategory !== 'personalized') return false;
+      } else if (activeCategoryFilter === 'others') {
+        if (!isOthersCategory(m)) return false;
+      }
 
+      // 2. Media type: Images | Videos | Text Only
+      if (mediaTypeFilter === 'images') {
+        if (!hasMessageImages(m)) return false;
+      } else if (mediaTypeFilter === 'videos') {
+        if (!hasMessageVideo(m)) return false;
+      } else if (mediaTypeFilter === 'text_only') {
+        if (!isTextOnlyMessage(m)) return false;
+      }
+
+      // 3. Posting status (mutually exclusive with language_requested)
+      if (activeFilter === 'language_requested') {
+        if (!isPostableMessage(m)) return false;
+        const act = getMessageAction(m.id);
+        const st = act?.status || m.postingStatus || 'pending';
+        if (st === 'posted' || st === 'not_posted') return false;
+        if (!getLanguageRequestForMessage(m.id)) return false;
+      } else if (activeFilter === 'pending') {
+        if (!isPostableMessage(m)) return false;
+        const act = getMessageAction(m.id);
+        const st = act?.status || m.postingStatus || 'pending';
+        if (st !== 'pending') return false;
+        if (getLanguageRequestForMessage(m.id)) return false;
+      } else if (activeFilter !== 'all') {
+        if (!isPostableMessage(m)) return false;
         const act = getMessageAction(m.id);
         const st = act?.status || m.postingStatus || 'pending';
         if (st !== activeFilter) return false;
       }
 
-      // 2. Category Filter
-      if (activeCategoryFilter !== 'all') {
-        if (activeCategoryFilter === 'flyer') {
-          if (m.contentCategory !== 'flyer') return false;
-        } else if (activeCategoryFilter === 'personalized') {
-          if (m.contentCategory !== 'personalized') return false;
-        } else if (activeCategoryFilter === 'normal') {
-          // Normal = explicit normal category, or plain text chat (no flyer/personalized)
-          const isNormal =
-            m.contentCategory === 'normal' ||
-            (!m.contentCategory && m.type === 'text' && !m.isPostable);
-          if (!isNormal) return false;
-        }
-      }
+      // 4. Text search
+      if (q && !messageSearchBlob(m).includes(q)) return false;
 
       return true;
     });
-  }, [activeConversation, activeFilter, activeCategoryFilter, getMessageAction]);
+  }, [
+    activeConversation,
+    activeFilter,
+    activeCategoryFilter,
+    mediaTypeFilter,
+    chatSearch,
+    getMessageAction,
+    getLanguageRequestForMessage
+  ]);
 
   const handleClearFilters = () => {
     setActiveFilter('all');
     setActiveCategoryFilter('all');
+    setMediaTypeFilter('all');
+    setChatSearch('');
   };
+
+  const hasActiveFilters =
+    activeFilter !== 'all' ||
+    activeCategoryFilter !== 'all' ||
+    mediaTypeFilter !== 'all' ||
+    Boolean(chatSearch.trim());
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     const hasText = Boolean(inputText.trim());
-    const hasAttachments = attachedImages.length > 0;
+    const hasAttachments = attachedImages.length > 0 || attachedVideos.length > 0;
     if (!hasText && !hasAttachments) return;
 
     if (currentUser?.role === 'Admin') {
       sendMessage(activeConversation.id, inputText.trim(), {
         category: contentType,
         images: attachedImages,
+        videos: contentType === 'personalized' ? attachedVideos : undefined,
         recipientUserId: activeConversation.senderId,
         recipientName: activeConversation.senderName,
         title:
           contentType === 'personalized'
-            ? `Personalized for ${activeConversation.senderName}`
+            ? 'Personalized'
             : undefined
       });
 
       // Reset selection and attachments after sending
       setContentType('flyer');
       setAttachedImages([]);
+      setAttachedVideos([]);
       setAttachError(null);
     } else {
       sendMessage(activeConversation.id, inputText.trim());
     }
 
     setInputText('');
-    if (activeFilter !== 'all' || activeCategoryFilter !== 'all') {
-      setActiveFilter('all');
-      setActiveCategoryFilter('all');
+    if (hasActiveFilters) {
+      handleClearFilters();
     }
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -418,155 +559,206 @@ export const ConversationDetailView: React.FC = () => {
           </div>
         </header>
       ) : (
-        /* Marketer Role: Avatar/Name/Role/Status profile section completely removed, back button removed, compact header with controls */
-        <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 px-4 py-1.5 shadow-2xs shrink-0">
-          <div className="flex items-center justify-end gap-1 relative">
-            <button
-              type="button"
-              onClick={() => setActiveTab('notifications')}
-              className="p-1.5 rounded-xl text-blue-600 hover:text-blue-800 hover:bg-blue-50/80 flex items-center justify-center transition-colors relative cursor-pointer"
-              aria-label="Notifications"
-              title="Notifications"
-            >
-              <Bell className="w-5 h-5" />
-              {unreadNotificationCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full" />
+        /* Marketer: short title + notification/menu controls */
+        <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 px-4 py-2 shadow-2xs shrink-0">
+          <div className="flex items-center justify-between gap-2 relative">
+            <h1 className="text-[15px] font-bold text-slate-900 tracking-tight truncate min-w-0">
+              Conversation
+            </h1>
+
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveTab('notifications')}
+                className="p-1.5 rounded-xl text-blue-600 hover:text-blue-800 hover:bg-blue-50/80 flex items-center justify-center transition-colors relative cursor-pointer"
+                aria-label="Notifications"
+                title="Notifications"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setHeaderMenuOpen(!headerMenuOpen)}
+                className="p-1.5 rounded-xl text-blue-600 hover:text-blue-800 hover:bg-blue-50/80 flex items-center justify-center transition-colors cursor-pointer"
+                aria-label="Menu"
+                title="Options"
+              >
+                <MoreVertical className="w-5 h-5" />
+              </button>
+
+              {headerMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setHeaderMenuOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-200/80 py-1 z-50 text-xs font-medium text-slate-700 animate-in fade-in-50 zoom-in-95">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHeaderMenuOpen(false);
+                        setActiveTab('profile');
+                      }}
+                      className="w-full px-3 py-2 text-left hover:bg-slate-50 cursor-pointer"
+                    >
+                      View Profile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHeaderMenuOpen(false);
+                        setActiveTab('notifications');
+                      }}
+                      className="w-full px-3 py-2 text-left hover:bg-slate-50 cursor-pointer"
+                    >
+                      Alerts & Activity
+                    </button>
+                  </div>
+                </>
               )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setHeaderMenuOpen(!headerMenuOpen)}
-              className="p-1.5 rounded-xl text-blue-600 hover:text-blue-800 hover:bg-blue-50/80 flex items-center justify-center transition-colors cursor-pointer"
-              aria-label="Menu"
-              title="Options"
-            >
-              <MoreVertical className="w-5 h-5" />
-            </button>
-
-            {headerMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setHeaderMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-200/80 py-1 z-50 text-xs font-medium text-slate-700 animate-in fade-in-50 zoom-in-95">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHeaderMenuOpen(false);
-                      setActiveTab('profile');
-                    }}
-                    className="w-full px-3 py-2 text-left hover:bg-slate-50 cursor-pointer"
-                  >
-                    View Profile
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHeaderMenuOpen(false);
-                      setActiveTab('notifications');
-                    }}
-                    className="w-full px-3 py-2 text-left hover:bg-slate-50 cursor-pointer"
-                  >
-                    Alerts & Activity
-                  </button>
-                </div>
-              </>
-            )}
+            </div>
           </div>
         </header>
       )}
 
-      {/* Status chips (tap to filter) + category — one compact bar */}
-      <div className="mx-3 mt-2 mb-1.5 shrink-0 z-20">
+      {/* Filters: Category · Media type · Posting status */}
+      <div className="mx-3 mt-2 mb-1.5 shrink-0 z-20" data-tour="chat-filters">
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-2 space-y-2">
-          {imagePostingCounts && (
-            <div className="grid grid-cols-4 gap-1">
-              {(
-                [
-                  {
-                    key: 'all' as PostingFilter,
-                    label: 'All',
-                    count: imagePostingCounts.total,
-                    Icon: FileText,
-                    on: 'bg-blue-600 text-white border-blue-600',
-                    off: 'bg-blue-50 text-blue-700 border-blue-100'
-                  },
-                  {
-                    key: 'posted' as PostingFilter,
-                    label: 'Posted',
-                    count: imagePostingCounts.posted,
-                    Icon: CheckCircle2,
-                    on: 'bg-emerald-600 text-white border-emerald-600',
-                    off: 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                  },
-                  {
-                    key: 'pending' as PostingFilter,
-                    label: 'Pending',
-                    count: imagePostingCounts.pending,
-                    Icon: Clock,
-                    on: 'bg-amber-500 text-white border-amber-500',
-                    off: 'bg-amber-50 text-amber-800 border-amber-100'
-                  },
-                  {
-                    key: 'not_posted' as PostingFilter,
-                    label: 'Held',
-                    count: imagePostingCounts.notPosted,
-                    Icon: XCircle,
-                    on: 'bg-rose-600 text-white border-rose-600',
-                    off: 'bg-rose-50 text-rose-700 border-rose-100'
-                  }
-                ] as const
-              ).map((chip) => {
-                const active = activeFilter === chip.key;
-                const Icon = chip.Icon;
-                return (
-                  <button
-                    key={chip.key}
-                    type="button"
-                    onClick={() => setActiveFilter(chip.key)}
-                    className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-1.5 transition-colors cursor-pointer ${
-                      active ? chip.on : chip.off
-                    }`}
-                    title={chip.key === 'not_posted' ? 'Not posted' : chip.label}
-                  >
-                    <span className="flex items-center gap-0.5">
-                      <Icon className="w-3 h-3 shrink-0" />
-                      <span className="text-xs font-extrabold leading-none">{chip.count}</span>
-                    </span>
-                    <span className="text-[9px] font-bold leading-none opacity-90">{chip.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="search"
+              value={chatSearch}
+              onChange={(e) => setChatSearch(e.target.value)}
+              placeholder="Search chat text, titles…"
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-400"
+            />
+          </div>
 
-          <div className="flex items-center gap-1.5">
-            <div className="relative flex-1 min-w-0">
+          <div className="grid grid-cols-2 gap-1.5">
+            <div className="relative min-w-0">
               <select
                 id="message-category-filter"
                 value={activeCategoryFilter}
                 onChange={(e) => setActiveCategoryFilter(e.target.value as CategoryFilter)}
                 className="w-full appearance-none bg-slate-50 hover:bg-slate-100 text-slate-800 text-[11px] font-semibold pl-2.5 pr-7 py-1.5 rounded-xl border border-slate-200 cursor-pointer outline-none"
+                title="Category"
               >
-                <option value="all">All types</option>
+                <option value="all">All categories</option>
                 <option value="flyer">Flyer</option>
-                <option value="personalized">Personalized</option>
-                <option value="normal">Normal</option>
+                <option value="personalized">Personalized Content</option>
+                <option value="others">Others</option>
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
             </div>
 
-            <span className="text-[10px] font-semibold text-slate-400 shrink-0 tabular-nums">
-              {filteredMessages.length}/{activeConversation.messages.length}
-            </span>
+            <div className="relative min-w-0">
+              <select
+                id="message-media-filter"
+                value={mediaTypeFilter}
+                onChange={(e) => setMediaTypeFilter(e.target.value as MediaTypeFilter)}
+                className="w-full appearance-none bg-slate-50 hover:bg-slate-100 text-slate-800 text-[11px] font-semibold pl-2.5 pr-7 py-1.5 rounded-xl border border-slate-200 cursor-pointer outline-none"
+                title="Media type"
+              >
+                <option value="all">All media</option>
+                <option value="images">Images</option>
+                <option value="videos">Videos</option>
+                <option value="text_only">Text Only</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
+            </div>
+          </div>
 
-            {(activeFilter !== 'all' || activeCategoryFilter !== 'all') && (
+          <div className="grid grid-cols-5 gap-1">
+            {(
+              [
+                {
+                  key: 'all' as PostingFilter,
+                  label: 'All',
+                  count: statusCounts.total,
+                  Icon: FileText,
+                  on: 'bg-blue-600 text-white border-blue-600',
+                  off: 'bg-blue-50 text-blue-700 border-blue-100',
+                  title: 'All messages'
+                },
+                {
+                  key: 'pending' as PostingFilter,
+                  label: 'Pending',
+                  count: statusCounts.pending,
+                  Icon: Clock,
+                  on: 'bg-amber-500 text-white border-amber-500',
+                  off: 'bg-amber-50 text-amber-800 border-amber-100',
+                  title: 'Pending'
+                },
+                {
+                  key: 'posted' as PostingFilter,
+                  label: 'Posted',
+                  count: statusCounts.posted,
+                  Icon: CheckCircle2,
+                  on: 'bg-emerald-600 text-white border-emerald-600',
+                  off: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                  title: 'Posted'
+                },
+                {
+                  key: 'not_posted' as PostingFilter,
+                  label: 'Revision',
+                  count: statusCounts.notPosted,
+                  Icon: XCircle,
+                  on: 'bg-rose-600 text-white border-rose-600',
+                  off: 'bg-rose-50 text-rose-700 border-rose-100',
+                  title: 'Revision Requested'
+                },
+                {
+                  key: 'language_requested' as PostingFilter,
+                  label: 'Lang',
+                  count: statusCounts.languageRequested,
+                  Icon: Languages,
+                  on: 'bg-indigo-600 text-white border-indigo-600',
+                  off: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+                  title: 'Language Requested'
+                }
+              ] as const
+            ).map((chip) => {
+              const active = activeFilter === chip.key;
+              const Icon = chip.Icon;
+              return (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => setActiveFilter(chip.key)}
+                  className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border px-0.5 py-1.5 transition-colors cursor-pointer ${
+                    active ? chip.on : chip.off
+                  }`}
+                  title={chip.title}
+                >
+                  <span className="flex items-center gap-0.5">
+                    <Icon className="w-3 h-3 shrink-0" />
+                    <span className="text-[11px] font-extrabold leading-none tabular-nums">
+                      {chip.count}
+                    </span>
+                  </span>
+                  <span className="text-[8px] font-bold leading-none opacity-90 truncate max-w-full px-0.5">
+                    {chip.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-semibold text-slate-400 tabular-nums">
+              {filteredMessages.length}/{activeConversation.messages.length} shown
+            </span>
+            {hasActiveFilters && (
               <button
                 type="button"
                 onClick={handleClearFilters}
-                className="w-8 h-8 rounded-xl text-blue-600 hover:bg-blue-50 border border-blue-100 flex items-center justify-center cursor-pointer shrink-0"
+                className="h-7 px-2 rounded-lg text-blue-600 hover:bg-blue-50 border border-blue-100 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
                 title="Clear filters"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-3 h-3" />
+                Clear
               </button>
             )}
           </div>
@@ -578,6 +770,7 @@ export const ConversationDetailView: React.FC = () => {
       {/* ========================================================================= */}
       <div
         ref={scrollContainerRef}
+        data-tour="chat-messages"
         className="flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-6 space-y-3.5 flex flex-col"
       >
         {filteredMessages.length === 0 ? (
@@ -645,11 +838,11 @@ export const ConversationDetailView: React.FC = () => {
           {currentUser?.role === 'Admin' ? (
             <div className="space-y-1.5">
               {/* Attachment preview (only when needed) */}
-              {attachedImages.length > 0 && (
+              {(attachedImages.length > 0 || attachedVideos.length > 0) && (
                 <div className="flex items-center gap-2 px-0.5 overflow-x-auto">
                   {attachedImages.map((img, idx) => (
                     <div
-                      key={idx}
+                      key={`img-${idx}`}
                       className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0"
                     >
                       <img
@@ -667,8 +860,27 @@ export const ConversationDetailView: React.FC = () => {
                       </button>
                     </div>
                   ))}
+                  {attachedVideos.map((vid, idx) => (
+                    <div
+                      key={`vid-${idx}`}
+                      className="relative w-14 h-10 rounded-lg overflow-hidden border border-purple-200 bg-slate-900 shrink-0"
+                    >
+                      <video src={vid} className="w-full h-full object-cover" muted />
+                      <button
+                        type="button"
+                        onClick={() => removeVideo(idx)}
+                        className="absolute top-0.5 right-0.5 w-4 h-4 bg-slate-900/80 hover:bg-rose-600 text-white rounded-full flex items-center justify-center cursor-pointer"
+                        title="Remove video"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
                   <span className="text-[10px] font-semibold text-blue-700 shrink-0">
-                    {attachedImages.length}/3
+                    {attachedImages.length}/{maxImages}
+                    {contentType === 'personalized'
+                      ? ` · ${attachedVideos.length}/${PERSONALIZED_MAX_VIDEOS} video`
+                      : ''}
                   </span>
                 </div>
               )}
@@ -686,9 +898,25 @@ export const ConversationDetailView: React.FC = () => {
                   <select
                     id="admin-composer-content-type"
                     value={contentType}
-                    onChange={(e) =>
-                      setContentType(e.target.value as 'flyer' | 'personalized' | 'normal')
-                    }
+                    onChange={(e) => {
+                      const next = e.target.value as 'flyer' | 'personalized' | 'normal';
+                      setContentType(next);
+                      if (next !== 'personalized') {
+                        setAttachedVideos((prev) => {
+                          prev.forEach((v) => {
+                            if (v.startsWith('blob:')) URL.revokeObjectURL(v);
+                          });
+                          return [];
+                        });
+                        setAttachedImages((prev) => {
+                          if (prev.length <= FLYER_MAX_IMAGES) return prev;
+                          prev.slice(FLYER_MAX_IMAGES).forEach((img) => {
+                            if (img.startsWith('blob:')) URL.revokeObjectURL(img);
+                          });
+                          return prev.slice(0, FLYER_MAX_IMAGES);
+                        });
+                      }
+                    }}
                     aria-label="Content type"
                     title="Content type"
                     className="appearance-none max-w-[7.5rem] text-[11px] font-bold bg-white text-slate-800 rounded-full pl-2.5 pr-6 py-1.5 border border-slate-200 cursor-pointer outline-none hover:border-blue-400 focus:ring-1 focus:ring-blue-400"
@@ -753,11 +981,15 @@ export const ConversationDetailView: React.FC = () => {
 
                 <label
                   className={`relative w-8 h-8 rounded-full flex items-center justify-center cursor-pointer shrink-0 ${
-                    attachedImages.length >= 3
+                    attachedImages.length >= maxImages
                       ? 'opacity-40 cursor-not-allowed text-slate-400'
                       : 'text-slate-500 hover:text-blue-600 hover:bg-white'
                   }`}
-                  title={attachedImages.length >= 3 ? 'Max 3 images' : 'Attach image'}
+                  title={
+                    attachedImages.length >= maxImages
+                      ? `Max ${maxImages} images`
+                      : 'Attach image'
+                  }
                 >
                   <ImagePlus className="w-4 h-4" />
                   {attachedImages.length > 0 && (
@@ -770,15 +1002,52 @@ export const ConversationDetailView: React.FC = () => {
                     type="file"
                     accept="image/*"
                     multiple
-                    disabled={attachedImages.length >= 3}
+                    disabled={attachedImages.length >= maxImages}
                     onChange={handleFileAttach}
                     className="hidden"
                   />
                 </label>
 
+                {contentType === 'personalized' && (
+                  <label
+                    className={`relative w-8 h-8 rounded-full flex items-center justify-center cursor-pointer shrink-0 ${
+                      attachedVideos.length >= PERSONALIZED_MAX_VIDEOS
+                        ? 'opacity-40 cursor-not-allowed text-slate-400'
+                        : attachedVideos.length > 0
+                          ? 'bg-purple-50 text-purple-600'
+                          : 'text-slate-500 hover:text-purple-600 hover:bg-white'
+                    }`}
+                    title={
+                      attachedVideos.length >= PERSONALIZED_MAX_VIDEOS
+                        ? `Max ${PERSONALIZED_MAX_VIDEOS} videos`
+                        : 'Attach video (Personalized)'
+                    }
+                  >
+                    <Video className="w-4 h-4" />
+                    {attachedVideos.length > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-purple-600 text-white text-[9px] font-bold flex items-center justify-center">
+                        {attachedVideos.length}
+                      </span>
+                    )}
+                    <input
+                      ref={videoInputRef}
+                      type="file"
+                      accept="video/mp4,video/webm,video/*"
+                      multiple
+                      disabled={attachedVideos.length >= PERSONALIZED_MAX_VIDEOS}
+                      onChange={handleVideoAttach}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+
                 <button
                   type="submit"
-                  disabled={!inputText.trim() && attachedImages.length === 0}
+                  disabled={
+                    !inputText.trim() &&
+                    attachedImages.length === 0 &&
+                    attachedVideos.length === 0
+                  }
                   className="w-8 h-8 rounded-full bg-[#0066f5] hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white flex items-center justify-center shrink-0 cursor-pointer active:scale-95"
                   aria-label="Send"
                 >

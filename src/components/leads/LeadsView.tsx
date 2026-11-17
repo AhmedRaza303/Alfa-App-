@@ -1,8 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useShellLayout } from '../../context/ShellLayoutContext';
-import { FlyerCategory, Lead } from '../../types';
+import { FlyerCategory, Lead, LeadSubmissionStatus } from '../../types';
 import { FLYER_CATEGORIES, getFlyerCategoryLabel } from '../../utils/flyerCategories';
+import {
+  formatLeadLockHint,
+  isLeadLocked,
+  LEAD_SUBMISSION_STATUSES,
+  submissionStatusLabel
+} from '../../utils/leads';
 import {
   ClipboardList,
   Plus,
@@ -15,7 +21,8 @@ import {
   Trash2,
   Search,
   Check,
-  Pencil
+  Pencil,
+  Lock
 } from 'lucide-react';
 
 type FormState = {
@@ -34,8 +41,30 @@ const emptyForm: FormState = {
   notes: ''
 };
 
+function statusChipClass(status: LeadSubmissionStatus | undefined) {
+  switch (status) {
+    case 'in_progress':
+      return 'bg-sky-50 text-sky-800 border-sky-200';
+    case 'rejected':
+      return 'bg-rose-50 text-rose-700 border-rose-200';
+    case 'new':
+    default:
+      return 'bg-amber-50 text-amber-800 border-amber-200';
+  }
+}
+
 export const LeadsView: React.FC = () => {
-  const { currentUser, language, leads, addLead, updateLead, deleteLead } = useApp();
+  const {
+    currentUser,
+    language,
+    leads,
+    addLead,
+    updateLead,
+    deleteLead,
+    updateLeadSubmissionStatus,
+    leadsAccidentTypeFilter,
+    setLeadsAccidentTypeFilter
+  } = useApp();
   const { isExpandedShell } = useShellLayout();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -43,7 +72,15 @@ export const LeadsView: React.FC = () => {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<FlyerCategory | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState<FlyerCategory | 'all'>(
+    () => leadsAccidentTypeFilter
+  );
+  const [statusFilter, setStatusFilter] = useState<LeadSubmissionStatus | 'all'>('all');
+
+  // Apply accident-type filter deep-linked from Stats
+  React.useEffect(() => {
+    setTypeFilter(leadsAccidentTypeFilter);
+  }, [leadsAccidentTypeFilter]);
 
   const visibleLeads = useMemo(() => {
     if (!currentUser) return [];
@@ -54,6 +91,9 @@ export const LeadsView: React.FC = () => {
 
     if (typeFilter !== 'all') {
       list = list.filter((l) => l.accidentType === typeFilter);
+    }
+    if (statusFilter !== 'all') {
+      list = list.filter((l) => (l.submissionStatus || 'new') === statusFilter);
     }
     if (search.trim()) {
       const q = search.toLowerCase().trim();
@@ -68,7 +108,7 @@ export const LeadsView: React.FC = () => {
     return list.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [leads, currentUser, search, typeFilter]);
+  }, [leads, currentUser, search, typeFilter, statusFilter]);
 
   if (!currentUser) return null;
 
@@ -127,7 +167,7 @@ export const LeadsView: React.FC = () => {
   };
 
   const openEditForm = (lead: Lead) => {
-    if (!canManageLeads) return;
+    if (!canManageLeads || isLeadLocked(lead)) return;
     setEditingLeadId(lead.id);
     setForm({
       fullName: lead.fullName,
@@ -147,8 +187,10 @@ export const LeadsView: React.FC = () => {
           isExpandedShell ? 'max-w-3xl p-4 space-y-4' : 'max-w-md'
         }`}
       >
-        {/* Filters */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs space-y-2">
+        <section
+          className="rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs space-y-2"
+          data-tour="leads-toolbar"
+        >
           {canManageLeads && (
             <div className="flex justify-end">
               <button
@@ -171,29 +213,48 @@ export const LeadsView: React.FC = () => {
               className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-blue-400"
             />
           </div>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as FlyerCategory | 'all')}
-            className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold px-3 py-2 outline-none cursor-pointer"
-          >
-            <option value="all">All accident types</option>
-            {FLYER_CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {getFlyerCategoryLabel(c.id, language)}
-              </option>
-            ))}
-          </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as LeadSubmissionStatus | 'all')
+              }
+              className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold px-3 py-2 outline-none cursor-pointer"
+            >
+              <option value="all">All submission statuses</option>
+              {LEAD_SUBMISSION_STATUSES.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={typeFilter}
+              onChange={(e) => {
+                const next = e.target.value as FlyerCategory | 'all';
+                setTypeFilter(next);
+                setLeadsAccidentTypeFilter(next);
+              }}
+              className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold px-3 py-2 outline-none cursor-pointer"
+            >
+              <option value="all">All accident types</option>
+              {FLYER_CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {getFlyerCategoryLabel(c.id, language)}
+                </option>
+              ))}
+            </select>
+          </div>
         </section>
 
-        {/* List */}
-        <section className="space-y-2">
+        <section className="space-y-2" data-tour="leads-list">
           {visibleLeads.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center px-4">
               <ClipboardList className="w-8 h-8 text-slate-300 mx-auto mb-2" />
               <p className="text-xs font-bold text-slate-700">No leads yet</p>
               <p className="text-[11px] text-slate-400 mt-1">
                 {isAdmin
-                  ? 'Marketers have not captured any leads yet.'
+                  ? 'No leads match these filters.'
                   : 'Tap New lead to add your first contact.'}
               </p>
               {canManageLeads && (
@@ -214,15 +275,16 @@ export const LeadsView: React.FC = () => {
                 language={language}
                 showOwner={isAdmin}
                 canManage={canManageLeads}
+                isAdmin={isAdmin}
                 onEdit={() => openEditForm(lead)}
                 onDelete={() => deleteLead(lead.id)}
+                onStatusChange={(status) => updateLeadSubmissionStatus(lead.id, status)}
               />
             ))
           )}
         </section>
       </div>
 
-      {/* Create / Edit Lead modal — marketers only */}
       {formOpen && canManageLeads && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="fixed inset-0" onClick={closeForm} />
@@ -396,28 +458,50 @@ function LeadCard({
   language,
   showOwner,
   canManage,
+  isAdmin,
   onEdit,
-  onDelete
+  onDelete,
+  onStatusChange
 }: {
   lead: Lead;
   language: 'en' | 'es';
   showOwner: boolean;
   canManage: boolean;
+  isAdmin: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onStatusChange: (status: LeadSubmissionStatus) => void;
 }) {
   const [confirm, setConfirm] = useState(false);
+  const locked = isLeadLocked(lead);
+  const status = lead.submissionStatus || 'new';
+  const canEditDelete = canManage && !locked;
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs space-y-2.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-bold text-slate-900 truncate">{lead.fullName}</h3>
-          <span className="inline-flex mt-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
-            {getFlyerCategoryLabel(lead.accidentType, language)}
-          </span>
+          <div className="flex flex-wrap items-center gap-1 mt-1">
+            <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
+              {getFlyerCategoryLabel(lead.accidentType, language)}
+            </span>
+            <span
+              className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border ${statusChipClass(
+                status
+              )}`}
+            >
+              {submissionStatusLabel(status)}
+            </span>
+            {locked && (
+              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                <Lock className="w-2.5 h-2.5" />
+                Locked
+              </span>
+            )}
+          </div>
         </div>
-        {canManage &&
+        {canEditDelete &&
           (!confirm ? (
             <div className="flex items-center gap-0.5 shrink-0">
               <button
@@ -474,7 +558,26 @@ function LeadCard({
         )}
       </div>
 
-      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100">
+      {isAdmin && (
+        <label className="block">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Submission status
+          </span>
+          <select
+            value={status}
+            onChange={(e) => onStatusChange(e.target.value as LeadSubmissionStatus)}
+            className="mt-1 w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold px-3 py-2 outline-none cursor-pointer focus:border-blue-400 focus:bg-white"
+          >
+            {LEAD_SUBMISSION_STATUSES.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      <div className="flex items-center justify-between gap-2 text-[10px] text-slate-400 pt-1 border-t border-slate-100">
         <span>
           {new Date(lead.createdAt).toLocaleString(undefined, {
             month: 'short',
@@ -483,7 +586,9 @@ function LeadCard({
             minute: '2-digit'
           })}
         </span>
-        {showOwner && <span className="font-semibold truncate">by {lead.createdByName}</span>}
+        <span className="font-semibold truncate text-right">
+          {showOwner ? `by ${lead.createdByName}` : formatLeadLockHint(lead)}
+        </span>
       </div>
     </article>
   );
