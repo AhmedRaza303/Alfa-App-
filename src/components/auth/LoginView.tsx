@@ -297,8 +297,8 @@ export const LoginView: React.FC = () => {
           </button>
         </form>
 
-        {/* Demo Fast Login Switcher */}
-        <div className="mt-6 pt-5 border-t border-slate-100">
+        {/* Demo Fast Login Switcher — hidden for now (do not remove) */}
+        <div className="hidden mt-6 pt-5 border-t border-slate-100" aria-hidden="true">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2 text-center">
             Demo Credentials
           </span>
